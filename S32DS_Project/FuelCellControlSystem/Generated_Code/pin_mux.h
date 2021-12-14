@@ -7,7 +7,7 @@
 **     Version     : Component 1.2.0, Driver 1.4, CPU db: 3.00.000
 **     Repository  : SDK_S32K14x_09
 **     Compiler    : GNU C Compiler
-**     Date/Time   : 2021-12-13, 17:10, # CodeGen: 0
+**     Date/Time   : 2021-12-14, 16:44, # CodeGen: 3
 **     Abstract    :
 **
 **     Settings    :
@@ -323,8 +323,8 @@
 **                  Direction                              : <Automatic>
 **                Custom name                              : PTD
 **                PTD                                      : 
-**                  Pin 0                                  : <Automatic>
-**                  Direction                              : <Automatic>
+**                  Pin 0                                  : PTD0
+**                  Direction                              : Output
 **                  Pin 1                                  : <Automatic>
 **                  Direction                              : <Automatic>
 **                  Pin 2                                  : <Automatic>
@@ -473,9 +473,9 @@
 **                LPUART0                                  : 
 **                  Clear to Send                          : <Automatic>
 **                  Request to Send                        : <Automatic>
-**                  Receive Data                           : <Automatic>
-**                  Transmit Data                          : <Automatic>
-**                  Direction                              : <Automatic>
+**                  Receive Data                           : PTA2
+**                  Transmit Data                          : PTA3
+**                  Direction                              : Output
 **                Custom name                              : LPUART1
 **                LPUART1                                  : 
 **                  Clear to Send                          : <Automatic>

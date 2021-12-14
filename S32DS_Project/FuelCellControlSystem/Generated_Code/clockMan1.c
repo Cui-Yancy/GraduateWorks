@@ -7,7 +7,7 @@
 **     Version     : Component SDK_S32K14x_09, Driver 01.00, CPU db: 3.00.000
 **     Repository  : SDK_S32K14x_09
 **     Compiler    : GNU C Compiler
-**     Date/Time   : 2021-12-13, 17:10, # CodeGen: 0
+**     Date/Time   : 2021-12-14, 16:46, # CodeGen: 4
 **
 **     Copyright 1997 - 2015 Freescale Semiconductor, Inc.
 **     Copyright 2016-2017 NXP
@@ -55,6 +55,27 @@
  * ************************************************************************* */
 /*! @brief peripheral clock configuration 0 */
 peripheral_clock_config_t peripheralClockConfig0[NUM_OF_PERIPHERAL_CLOCKS_0] = {
+    {
+        .clockName        = LPUART0_CLK,
+        .clkGate          = true,
+        .clkSrc           = CLK_SRC_SIRC_DIV1,
+        .frac             = MULTIPLY_BY_ONE,
+        .divider          = DIVIDE_BY_ONE,
+    },
+    {
+        .clockName        = LPUART1_CLK,
+        .clkGate          = true,
+        .clkSrc           = CLK_SRC_SIRC_DIV1,
+        .frac             = MULTIPLY_BY_ONE,
+        .divider          = DIVIDE_BY_ONE,
+    },
+    {
+        .clockName        = LPUART2_CLK,
+        .clkGate          = true,
+        .clkSrc           = CLK_SRC_SIRC_DIV1,
+        .frac             = MULTIPLY_BY_ONE,
+        .divider          = DIVIDE_BY_ONE,
+    },
     {
         .clockName        = PORTA_CLK,
         .clkGate          = true,
@@ -153,7 +174,7 @@ clock_manager_user_config_t clockMan1_InitConfig0 = {
             .locked           = false,                               /*!< LK         */
             /* SPLLCFG */
             .prediv           = SCG_SPLL_CLOCK_PREDIV_BY_1,          /*!< PREDIV     */
-            .mult             = SCG_SPLL_CLOCK_MULTIPLY_BY_28,       /*!< MULT       */
+            .mult             = SCG_SPLL_CLOCK_MULTIPLY_BY_40,       /*!< MULT       */
             .src              = 0U,                                  /*!< SOURCE     */
             /* SPLLDIV */
             .div1             = SCG_ASYNC_CLOCK_DIV_BY_1,            /*!< SPLLDIV1   */
@@ -169,10 +190,10 @@ clock_manager_user_config_t clockMan1_InitConfig0 = {
             .initialize       = true,                                /*!< Initialize */
             .rccrConfig =              /*!< RCCR - Run Clock Control Register          */
             {
-                .src          = SCG_SYSTEM_CLOCK_SRC_FIRC,           /*!< SCS        */
-                .divCore      = SCG_SYSTEM_CLOCK_DIV_BY_1,           /*!< DIVCORE    */
+                .src          = SCG_SYSTEM_CLOCK_SRC_SYS_PLL,        /*!< SCS        */
+                .divCore      = SCG_SYSTEM_CLOCK_DIV_BY_2,           /*!< DIVCORE    */
                 .divBus       = SCG_SYSTEM_CLOCK_DIV_BY_2,           /*!< DIVBUS     */
-                .divSlow      = SCG_SYSTEM_CLOCK_DIV_BY_2,           /*!< DIVSLOW    */
+                .divSlow      = SCG_SYSTEM_CLOCK_DIV_BY_3,           /*!< DIVSLOW    */
             },
             .vccrConfig =              /*!< VCCR - VLPR Clock Control Register         */
             {
@@ -184,7 +205,7 @@ clock_manager_user_config_t clockMan1_InitConfig0 = {
             .hccrConfig =              /*!< HCCR - HSRUN Clock Control Register        */
             {
                 .src          = SCG_SYSTEM_CLOCK_SRC_SYS_PLL,        /*!< SCS        */
-                .divCore      = SCG_SYSTEM_CLOCK_DIV_BY_1,           /*!< DIVCORE    */
+                .divCore      = SCG_SYSTEM_CLOCK_DIV_BY_2,           /*!< DIVCORE    */
                 .divBus       = SCG_SYSTEM_CLOCK_DIV_BY_2,           /*!< DIVBUS     */
                 .divSlow      = SCG_SYSTEM_CLOCK_DIV_BY_4,           /*!< DIVSLOW    */
             },
