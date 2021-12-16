@@ -7,7 +7,7 @@
 **     Version     : Component 1.2.0, Driver 1.4, CPU db: 3.00.000
 **     Repository  : SDK_S32K14x_09
 **     Compiler    : GNU C Compiler
-**     Date/Time   : 2021-12-14, 16:44, # CodeGen: 3
+**     Date/Time   : 2021-12-16, 16:27, # CodeGen: 9
 **     Abstract    :
 **
 **     Settings    :
@@ -58,8 +58,8 @@
 **              Peripheral Type CAN                        : 
 **                Custom name                              : CAN0
 **                CAN0                                     : 
-**                  Receiver Input                         : <Automatic>
-**                  Transmitter Output                     : <Automatic>
+**                  Receiver Input                         : PTE4
+**                  Transmitter Output                     : PTE5
 **                Custom name                              : CAN1
 **                CAN1                                     : 
 **                  Receiver Input                         : <Automatic>
@@ -309,8 +309,8 @@
 **                  Direction                              : <Automatic>
 **                  Pin 11                                 : <Automatic>
 **                  Direction                              : <Automatic>
-**                  Pin 12                                 : <Automatic>
-**                  Direction                              : <Automatic>
+**                  Pin 12                                 : PTC12
+**                  Direction                              : Input
 **                  Pin 13                                 : <Automatic>
 **                  Direction                              : <Automatic>
 **                  Pin 14                                 : <Automatic>
@@ -673,7 +673,7 @@
 **                Pull Enable Field                        : <Automatic>
 **                Pull Select Field                        : <Automatic>
 **                Initial Value Field                      : <Automatic>
-**                Digital Filter Field                     : <Automatic>
+**                Digital Filter Field                     : Enabled
 **              Pin 10: VDD10                              : 
 **                Custom name, Signal name                 : VDD10
 **              Pin 11: VDDA                               : 
@@ -1026,13 +1026,13 @@
 **              Pin 50: PTC12                              : 
 **                Custom name, Signal name                 : PTC12
 **                Interrupt Status Field                   : <Automatic>
-**                Interrupt Configuration Field            : <Automatic>
+**                Interrupt Configuration Field            : ISF flag and Interrupt on rising-edge.
 **                Pin Mux Field                            : <Automatic>
 **                Lock Field                               : <Automatic>
 **                Pull Enable Field                        : <Automatic>
 **                Pull Select Field                        : <Automatic>
 **                Initial Value Field                      : <Automatic>
-**                Digital Filter Field                     : <Automatic>
+**                Digital Filter Field                     : Enabled
 **              Pin 51: PTC11                              : 
 **                Custom name, Signal name                 : PTC11
 **                Interrupt Status Field                   : <Automatic>

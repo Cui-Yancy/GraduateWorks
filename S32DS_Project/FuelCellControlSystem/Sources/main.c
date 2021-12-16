@@ -1,9 +1,8 @@
 #include "Cpu.h"
 volatile int exit_code = 0;
-
-#include "FreeRTOS.h"
-#include "task.h"
-#include "myTask.h"
+#include "CAN.h"
+#include "rtos.h"
+#include "stdio.h"
 
 int main(void)
 {
@@ -18,27 +17,23 @@ int main(void)
   /* Write your code here */
   /* For example: for(;;) { } */
 
-    CLOCK_SYS_Init(g_clockManConfigsArr, CLOCK_MANAGER_CONFIG_CNT,
-						g_clockManCallbacksArr, CLOCK_MANAGER_CALLBACK_CNT);
-	CLOCK_SYS_UpdateConfiguration(0U, CLOCK_MANAGER_POLICY_FORCIBLE);
-	PINS_DRV_Init(NUM_OF_CONFIGURED_PINS, g_pin_mux_InitConfigArr);
-	LPUART_DRV_Init(INST_LPUART1, &lpuart1_State, &lpuart1_InitConfig0);
+    CANMessage CAN_Message=
+    {
+      .ID = 0x521,
+      .isExtendFrame = false,
+      .MessageArry = {1,2,3,4,5,6,7,8}
+    };
+    
+    HardwareInit();
+    printf("hello yancy\r\n");
+	CAN0_Send(CAN_Message);
 
-	xTaskCreate((TaskFunction_t 				) Task1,
-				(const char 	*					) "Task1",
-				(configSTACK_DEPTH_TYPE	) Task1_StackSize,
-				(void 				* 				) NULL,
-				(UBaseType_t						) Task1_Priority,
-				(TaskHandle_t *					) &Task1_Handler ) ;
+	RTOS_Start();
 
-	//创建任务2
-	xTaskCreate((TaskFunction_t 				) Task2,
-				(const char 	*					) "Task2",
-				(configSTACK_DEPTH_TYPE	) Task2_StackSize,
-				(void 				* 				) NULL,
-				(UBaseType_t						) Task2_Priority,
-				(TaskHandle_t *					) &Task2_Handler ) ;
-	vTaskStartScheduler();
+	while(1)
+	{
+
+	}
 
 
   /*** Don't write any code pass this line, or it will be deleted during code generation. ***/

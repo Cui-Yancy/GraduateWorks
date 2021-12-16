@@ -1,0 +1,39 @@
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+S32DS_Project/FuelCellControlSystem/.*
+S32DS_Project/FuelCellControlSystem/ProcessorExpert*
+S32DS_Project/FuelCellControlSystem/D*
+S32DS_Project/FuelCellControlSystem/FreeRTOS/*
+S32DS_Project/FuelCellControlSystem/Project_Settings/*
+S32DS_Project/FuelCellControlSystem/SDK/*
