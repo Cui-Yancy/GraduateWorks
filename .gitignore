@@ -31,6 +31,7 @@
 *.out
 *.app
 
+.vscode
 S32DS_Project/FuelCellControlSystem/.*
 S32DS_Project/FuelCellControlSystem/ProcessorExpert*
 S32DS_Project/FuelCellControlSystem/D*

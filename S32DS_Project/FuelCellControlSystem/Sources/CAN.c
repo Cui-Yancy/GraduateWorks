@@ -2,6 +2,10 @@
 #include "CAN.h"
 #include "flexcan_driver.h"
 #include "canCom1.h"
+#include "stdio.h"
+
+#include "FreeRTOS.h"
+#include "queue.h"
 
 static void CAN_Send(CAN_Type *Base,uint8_t TX_MB,CANMessage message);
 
@@ -73,11 +77,23 @@ void CAN0_Send(CANMessage message)
 	CAN_Send(CAN0,TX_MessageBuffer,message);
 }
 
+extern QueueHandle_t CANRX_Queue;
 void CAN0_IRQHandler(){
-	if((CAN0->IFLAG1>>CAN_IFLAG1_BUF5I_SHIFT) & 1){
-		CANMessage CAN_Message;
+    BaseType_t err;
+    BaseType_t xHigherPriorityTaskWoken=pdFALSE;
+    if((CAN0->IFLAG1>>CAN_IFLAG1_BUF5I_SHIFT) & 1){
+        CANMessage CAN_Message;
 		CAN0_Receive(&CAN_Message);
-		CAN0_Send(CAN_Message);
+        if(CANRX_Queue != NULL){
+            err = xQueueSendFromISR(CANRX_Queue,&CAN_Message,&xHigherPriorityTaskWoken);
+            if(err == pdTRUE){
+                printf("Send CAN frame to queue succeed\r\n");
+                //CAN0_Send(CAN_Message);
+            }else{
+                printf("Send CAN frame to queue failed\r\n");
+            }
+        }
+        portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 		CAN0->IFLAG1 = 1<<CAN_IFLAG1_BUF5I_SHIFT;//
 	}else{
 		CAN0->IFLAG1 = ~((uint16_t)((1<<CAN_IFLAG1_BUF5I_SHIFT)));
