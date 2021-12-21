@@ -7,7 +7,7 @@
 **     Version     : Component SDK_S32K14x_09, Driver 01.00, CPU db: 3.00.000
 **     Repository  : SDK_S32K14x_09
 **     Compiler    : GNU C Compiler
-**     Date/Time   : 2021-12-15, 14:59, # CodeGen: 5
+**     Date/Time   : 2021-12-21, 18:23, # CodeGen: 17
 **
 **     Copyright 1997 - 2015 Freescale Semiconductor, Inc.
 **     Copyright 2016-2017 NXP
@@ -73,6 +73,13 @@ peripheral_clock_config_t peripheralClockConfig0[NUM_OF_PERIPHERAL_CLOCKS_0] = {
         .clockName        = FlexCAN2_CLK,
         .clkGate          = true,
         .clkSrc           = CLK_SRC_OFF,
+        .frac             = MULTIPLY_BY_ONE,
+        .divider          = DIVIDE_BY_ONE,
+    },
+    {
+        .clockName        = LPIT0_CLK,
+        .clkGate          = true,
+        .clkSrc           = CLK_SRC_SPLL_DIV2,
         .frac             = MULTIPLY_BY_ONE,
         .divider          = DIVIDE_BY_ONE,
     },
@@ -198,8 +205,8 @@ clock_manager_user_config_t clockMan1_InitConfig0 = {
             .mult             = SCG_SPLL_CLOCK_MULTIPLY_BY_40,       /*!< MULT       */
             .src              = 0U,                                  /*!< SOURCE     */
             /* SPLLDIV */
-            .div1             = SCG_ASYNC_CLOCK_DIV_BY_1,            /*!< SPLLDIV1   */
-            .div2             = SCG_ASYNC_CLOCK_DIV_BY_1,            /*!< SPLLDIV2   */
+            .div1             = SCG_ASYNC_CLOCK_DIV_BY_2,            /*!< SPLLDIV1   */
+            .div2             = SCG_ASYNC_CLOCK_DIV_BY_4,            /*!< SPLLDIV2   */
         },
         .clockOutConfig =
         {

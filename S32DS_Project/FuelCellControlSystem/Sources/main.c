@@ -16,18 +16,8 @@ int main(void)
 
   /* Write your code here */
   /* For example: for(;;) { } */
-
-    CANMessage CAN_Message=
-    {
-      .ID = 0x521,
-      .isExtendFrame = false,
-      .MessageArry = {1,2,3,4,5,6,7,8}
-    };
     
     HardwareInit();
-    printf("hello yancy\r\n");
-	CAN0_Send(CAN_Message);
-
 	RTOS_Start();
 
 	while(1)

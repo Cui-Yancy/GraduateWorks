@@ -10,8 +10,11 @@
 #include "rtos.h"
 
 TaskHandle_t CANRX_Handler;
+TaskHandle_t CANTX_Handler;
 TaskHandle_t SYSTEMSTATUS_Handler;
+
 QueueHandle_t CANRX_Queue;
+QueueHandle_t CANTX_Queue;
 
 void HardwareInit()
 {
@@ -57,6 +60,23 @@ void RTOS_Start()
         #endif
     }
 
+    retValue = xTaskCreate( (TaskFunction_t         ) CANTX             ,   //任务入口函数
+                            (const char *           ) "CANTX"           ,   //任务名称
+                            (configSTACK_DEPTH_TYPE ) CANTX_STACKSIZE   ,   //任务堆栈大小
+                            (void *                 ) NULL              ,   //任务输入
+                            (UBaseType_t            ) CANTX_PRIORITY    ,   //任务优先级
+                            (TaskHandle_t *         ) &CANTX_Handler )  ;   //任务句柄
+    if(retValue != pdPASS)
+    {
+        printf("[%s,%d]:CANTX task create failed\r\n",__FILE__,__LINE__);
+    }
+    else
+    {
+        #if DEBUG_MODE
+            printf("CANTX task create succeed\r\n");
+        #endif
+    }
+
     retValue = xTaskCreate( (TaskFunction_t         ) SYSTEMSTATUS             ,   //任务入口函数
                             (const char *           ) "SYSTEMSTATUS"           ,   //任务名称
                             (configSTACK_DEPTH_TYPE ) SYSTEMSTATUS_STACKSIZE   ,   //任务堆栈大小
@@ -85,6 +105,17 @@ void RTOS_Start()
         #endif
     }
 
+    CANTX_Queue = xQueueCreate(CANTX_LENGTH,sizeof(CANMessage));
+    if(!CANTX_Queue){
+      printf("[%s,%d]:CANTX_Queue create failed\r\n",__FILE__,__LINE__);
+    }
+    else
+    {
+        #if DEBUG_MODE
+            printf("CANTX queue create succeed\r\n");
+        #endif
+    }
+
 #if DEBUG_MODE
     printf("Start OS Scheduler\r\n");
 #endif
@@ -99,18 +130,58 @@ void CANRX( void * pvParameters )
     while(1)
     {
         retValue = xQueueReceive(CANRX_Queue,&CAN_Message,portMAX_DELAY);
-        PINS_DRV_TogglePins(PTD,1<<GPIO_RGB_BLUE);
         if(retValue == pdTRUE)
         {
-            printf("Receive CAN frame from CANRX queue succeed\r\n");
+            #if DEBUG_MODE
+                printf("Receive CAN frame from CANRX queue succeed\r\n");
+            #endif
+            PINS_DRV_TogglePins(PTD,1<<GPIO_RGB_BLUE);
         }
+        else
+        {
+            printf("[%s,%d]:Receive CAN frame from CANRX queue failed\r\n",__FILE__,__LINE__);
+        }
+
         CAN_Message.MessageArry[7]++;
-        CAN0_Send(CAN_Message);
+        retValue = xQueueSend(CANTX_Queue,&CAN_Message,portMAX_DELAY);
+        if(retValue == pdTRUE)
+        {
+            #if DEBUG_MODE
+                printf("Send CAN frame to CANTX queue succeed\r\n");
+            #endif
+            PINS_DRV_TogglePins(PTD,1<<GPIO_RGB_BLUE);
+        }
+        else
+        {
+            printf("[%s,%d]:Send CAN frame to CANTX queue failed\r\n",__FILE__,__LINE__);
+        }
+        
         //vTaskDelay(1000);
     }
 }
 
-char TaskInfo[1024];
+void CANTX( void * pvParameters )
+{
+    BaseType_t retValue;
+    CANMessage CAN_Message;
+    while(1)
+    {
+        retValue = xQueueReceive(CANTX_Queue,&CAN_Message,portMAX_DELAY);
+        if(retValue == pdTRUE)
+        {
+            #if DEBUG_MODE
+                printf("Receive CAN frame from CANTX queue succeed\r\n");
+            #endif
+        }
+        else
+        {
+            printf("[%s,%d]:Receive CAN frame from CANTX queue failed\r\n",__FILE__,__LINE__);
+        }
+
+        CAN0_Send(CAN_Message);
+    }
+}
+
 void SYSTEMSTATUS( void * pvParameters )
 {
     /*查询系统任务状态*/
@@ -143,16 +214,18 @@ void SYSTEMSTATUS( void * pvParameters )
             ArraySize = uxTaskGetSystemState((TaskStatus_t  *) StatusArray   ,  //存储任务状态信息的结构体数组
                                             (UBaseType_t    ) ArraySize     ,
                                             (uint32_t      *) &TotalRunTime );
-            printf("TaskName   Pri Num Stack\r\n");
+            printf("TaskName   Pri Num Stack RunTime    Status\r\n");
             for(x=0;x<ArraySize;x++)
             {
                 //通过串口打印出获取到的系统任务的有关信息，比如任务名称、
                 //任务优先级和任务编号。
-                printf("%-11s%-4d%-4d%-5d\r\n",
+                printf("%-11s%-4d%-4d%-6d%-11lu%-6d\r\n",
                 StatusArray[x].pcTaskName,
                 (int)StatusArray[x].uxCurrentPriority,
                 (int)StatusArray[x].xTaskNumber,
-                StatusArray[x].usStackHighWaterMark);//任务编号表示创建先后顺序，首先创建开始任务
+                StatusArray[x].usStackHighWaterMark,
+                StatusArray[x].ulRunTimeCounter,
+                StatusArray[x].eCurrentState);//任务编号表示创建先后顺序，首先创建开始任务
             }
         }
         else

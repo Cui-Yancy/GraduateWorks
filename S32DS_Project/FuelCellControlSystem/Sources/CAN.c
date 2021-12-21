@@ -6,6 +6,7 @@
 
 #include "FreeRTOS.h"
 #include "queue.h"
+#include "rtos.h"
 
 static void CAN_Send(CAN_Type *Base,uint8_t TX_MB,CANMessage message);
 
@@ -87,10 +88,12 @@ void CAN0_IRQHandler(){
         if(CANRX_Queue != NULL){
             err = xQueueSendFromISR(CANRX_Queue,&CAN_Message,&xHigherPriorityTaskWoken);
             if(err == pdTRUE){
-                printf("Send CAN frame to queue succeed\r\n");
+                #if DEBUG_MODE
+                    printf("Send CAN frame to queue succeed\r\n");
+                #endif
                 //CAN0_Send(CAN_Message);
             }else{
-                printf("Send CAN frame to queue failed\r\n");
+                printf("[%s,%d]:Send CAN frame to queue failed\r\n",__FILE__,__LINE__);
             }
         }
         portYIELD_FROM_ISR(xHigherPriorityTaskWoken);

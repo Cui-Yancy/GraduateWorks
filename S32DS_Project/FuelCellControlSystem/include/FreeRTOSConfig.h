@@ -29,6 +29,8 @@
 #ifndef FREERTOS_CONFIG_H
 #define FREERTOS_CONFIG_H
 
+#include "LPIT.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -67,11 +69,11 @@ turn the tick off. */
 #define configUSE_IDLE_HOOK						0
 #define configUSE_TICK_HOOK						0
 #define configCPU_CLOCK_HZ						(80*1000*1000)
-#define configMAX_PRIORITIES					( 7 )
+#define configMAX_PRIORITIES					( 7 )   //任务最大优先级，实际0~7
 #define configMINIMAL_STACK_SIZE				( ( unsigned short ) 120 )
 #define configTOTAL_HEAP_SIZE					( ( size_t ) ( 15 * 1024 ) )
 #define configMAX_TASK_NAME_LEN					( 10 )
-#define configUSE_TRACE_FACILITY				1
+#define configUSE_TRACE_FACILITY				1       //可视化调试，获得运行过程中获取系统信息
 #define configUSE_16_BIT_TICKS					0
 #define configIDLE_SHOULD_YIELD					1
 #define configUSE_MUTEXES						1
@@ -84,15 +86,15 @@ turn the tick off. */
 #define configSUPPORT_STATIC_ALLOCATION			0
 
 /* Run time stats gathering definitions. */
-#define configGENERATE_RUN_TIME_STATS	0
-#define portCONFIGURE_TIMER_FOR_RUN_TIME_STATS()
-#define portGET_RUN_TIME_COUNTER_VALUE()
+#define configGENERATE_RUN_TIME_STATS	1       //用于统计运行任务占用CPU时间
+#define portCONFIGURE_TIMER_FOR_RUN_TIME_STATS()    LPIT_Init()
+#define portGET_RUN_TIME_COUNTER_VALUE()            FreeRTOSRunTimeTicks
 
 /* This demo makes use of one or more example stats formatting functions.  These
 format the raw data provided by the uxTaskGetSystemState() function in to human
 readable ASCII form.  See the notes in the implementation of vTaskList() within
 FreeRTOS/Source/tasks.c for limitations. */
-#define configUSE_STATS_FORMATTING_FUNCTIONS	1
+#define configUSE_STATS_FORMATTING_FUNCTIONS	0   //用于vTaskList函数调用，查看系统信息，但是占用资源和时间太大，建议关闭
 
 /* Co-routine definitions. */
 #define configUSE_CO_ROUTINES			 0
