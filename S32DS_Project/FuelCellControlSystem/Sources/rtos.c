@@ -2,6 +2,10 @@
 #include "Cpu.h"
 #include "CAN.h"
 #include "gpio.h"
+#include "ADC0.h"
+#include "ADC1.h"
+#include "DMA.h"
+
 #include "stdio.h"
 
 #include "FreeRTOS.h"
@@ -11,6 +15,7 @@
 
 TaskHandle_t CANRX_Handler;
 TaskHandle_t CANTX_Handler;
+TaskHandle_t SENSOR_Handler;
 TaskHandle_t SYSTEMSTATUS_Handler;
 
 QueueHandle_t CANRX_Queue;
@@ -18,21 +23,26 @@ QueueHandle_t CANTX_Queue;
 
 void HardwareInit()
 {
-	CLOCK_SYS_Init(g_clockManConfigsArr, CLOCK_MANAGER_CONFIG_CNT,
-						g_clockManCallbacksArr, CLOCK_MANAGER_CALLBACK_CNT);
-	CLOCK_SYS_UpdateConfiguration(0U, CLOCK_MANAGER_POLICY_FORCIBLE);
+    CLOCK_SYS_Init(g_clockManConfigsArr, CLOCK_MANAGER_CONFIG_CNT,
+                        g_clockManCallbacksArr, CLOCK_MANAGER_CALLBACK_CNT);
+    CLOCK_SYS_UpdateConfiguration(0U, CLOCK_MANAGER_POLICY_FORCIBLE);
 
-	GPIO_Init();
+    GPIO_Init();
 
-	LPUART_DRV_Init(INST_LPUART1, &lpuart1_State, &lpuart1_InitConfig0);
+    LPUART_DRV_Init(INST_LPUART1, &lpuart1_State, &lpuart1_InitConfig0);
 #if DEBUG_MODE
     printf("UART Init finished\r\n");
 #endif
 
-	CAN0_Init();
+    CAN0_Init();
 #if DEBUG_MODE
     printf("CAN Init finished\r\n");
 #endif
+
+    DMA_Init();
+
+    ADC0_Init();
+    ADC1_Init();
 }
 
 void RTOS_Start()
@@ -66,6 +76,23 @@ void RTOS_Start()
                             (void *                 ) NULL              ,   //任务输入
                             (UBaseType_t            ) CANTX_PRIORITY    ,   //任务优先级
                             (TaskHandle_t *         ) &CANTX_Handler )  ;   //任务句柄
+    if(retValue != pdPASS)
+    {
+        printf("[%s,%d]:CANTX task create failed\r\n",__FILE__,__LINE__);
+    }
+    else
+    {
+        #if DEBUG_MODE
+            printf("CANTX task create succeed\r\n");
+        #endif
+    }
+
+    retValue = xTaskCreate( (TaskFunction_t         ) SENSOR             ,   //任务入口函数
+                            (const char *           ) "SENSOR"           ,   //任务名称
+                            (configSTACK_DEPTH_TYPE ) SENSOR_STACKSIZE   ,   //任务堆栈大小
+                            (void *                 ) NULL              ,   //任务输入
+                            (UBaseType_t            ) SENSOR_PRIORITY    ,   //任务优先级
+                            (TaskHandle_t *         ) &SENSOR_Handler )  ;   //任务句柄
     if(retValue != pdPASS)
     {
         printf("[%s,%d]:CANTX task create failed\r\n",__FILE__,__LINE__);
@@ -182,6 +209,59 @@ void CANTX( void * pvParameters )
     }
 }
 
+void SENSOR( void * pvParameters )
+{
+    double T = 0.000,I = 0.0,V = 0.00;
+    CANMessage CAN_Message;
+    BaseType_t retValue;
+    while(1)
+    {
+        ADC0_CalculateT(&T,&CAN_Message);
+        retValue = xQueueSend(CANTX_Queue,&CAN_Message,portMAX_DELAY);
+        if(retValue == pdTRUE)
+        {
+            #if DEBUG_MODE
+                printf("Send CAN frame to CANTX queue succeed\r\n");
+            #endif
+        }
+        else
+        {
+            printf("[%s,%d]:Send CAN frame to CANTX queue failed\r\n",__FILE__,__LINE__);
+        }
+        printf("T(°C) = %-14.4f",T);
+
+        ADC1_CalculateV(&V,&CAN_Message);
+        retValue = xQueueSend(CANTX_Queue,&CAN_Message,portMAX_DELAY);
+        if(retValue == pdTRUE)
+        {
+            #if DEBUG_MODE
+                printf("Send CAN frame to CANTX queue succeed\r\n");
+            #endif
+        }
+        else
+        {
+            printf("[%s,%d]:Send CAN frame to CANTX queue failed\r\n",__FILE__,__LINE__);
+        }
+            printf("V(V) = %-10.4f",V);
+
+        ADC1_CalculateI(&I,&CAN_Message);
+        retValue = xQueueSend(CANTX_Queue,&CAN_Message,portMAX_DELAY);
+        if(retValue == pdTRUE)
+        {
+            #if DEBUG_MODE
+                printf("Send CAN frame to CANTX queue succeed\r\n");
+            #endif
+        }
+        else
+        {
+            printf("[%s,%d]:Send CAN frame to CANTX queue failed\r\n",__FILE__,__LINE__);
+        }
+        printf("I(A) = %-10.4f\r\n",I);
+
+        vTaskDelay(100);
+    }
+}
+
 void SYSTEMSTATUS( void * pvParameters )
 {
     /*查询系统任务状态*/
@@ -207,7 +287,7 @@ void SYSTEMSTATUS( void * pvParameters )
         // printf("MinRemainSize = %d\r\n",(uint16_t)MinRemainSize);
 
         CallCount++;
-        printf("call time count: %lu\r\n",CallCount);
+        printf("\r\ncall time count: %lu\r\n",CallCount);
         ArraySize = uxTaskGetNumberOfTasks();   //获取任务个数
         StatusArray = (TaskStatus_t *)pvPortMalloc(ArraySize * sizeof(TaskStatus_t));//为指针分配空间
         if(StatusArray != NULL){    //内存分配成功

@@ -7,7 +7,7 @@
 **     Version     : Component 1.2.0, Driver 1.4, CPU db: 3.00.000
 **     Repository  : SDK_S32K14x_09
 **     Compiler    : GNU C Compiler
-**     Date/Time   : 2021-12-17, 16:05, # CodeGen: 13
+**     Date/Time   : 2021-12-22, 15:14, # CodeGen: 19
 **     Abstract    :
 **
 **     Settings    :
@@ -999,10 +999,10 @@
 **                Interrupt Configuration Field            : <Automatic>
 **                Pin Mux Field                            : <Automatic>
 **                Lock Field                               : <Automatic>
-**                Pull Enable Field                        : <Automatic>
+**                Pull Enable Field                        : Enabled
 **                Pull Select Field                        : <Automatic>
 **                Initial Value Field                      : <Automatic>
-**                Digital Filter Field                     : <Automatic>
+**                Digital Filter Field                     : Enabled
 **              Pin 48: PTB2                               : 
 **                Custom name, Signal name                 : PTB2
 **                Interrupt Status Field                   : <Automatic>
@@ -1193,20 +1193,20 @@
 **                Interrupt Configuration Field            : <Automatic>
 **                Pin Mux Field                            : <Automatic>
 **                Lock Field                               : <Automatic>
-**                Pull Enable Field                        : <Automatic>
+**                Pull Enable Field                        : Enabled
 **                Pull Select Field                        : <Automatic>
 **                Initial Value Field                      : <Automatic>
-**                Digital Filter Field                     : <Automatic>
+**                Digital Filter Field                     : Enabled
 **              Pin 69: PTD4                               : 
 **                Custom name, Signal name                 : PTD4
 **                Interrupt Status Field                   : <Automatic>
 **                Interrupt Configuration Field            : <Automatic>
 **                Pin Mux Field                            : <Automatic>
 **                Lock Field                               : <Automatic>
-**                Pull Enable Field                        : <Automatic>
+**                Pull Enable Field                        : Enabled
 **                Pull Select Field                        : <Automatic>
 **                Initial Value Field                      : <Automatic>
-**                Digital Filter Field                     : <Automatic>
+**                Digital Filter Field                     : Enabled
 **              Pin 70: PTD3                               : 
 **                Custom name, Signal name                 : PTD3
 **                Interrupt Status Field                   : <Automatic>

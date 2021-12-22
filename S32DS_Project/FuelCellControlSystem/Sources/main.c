@@ -18,12 +18,12 @@ int main(void)
   /* For example: for(;;) { } */
     
     HardwareInit();
-	RTOS_Start();
+    RTOS_Start();
 
-	while(1)
-	{
+    while(1)
+    {
 
-	}
+    }
 
 
   /*** Don't write any code pass this line, or it will be deleted during code generation. ***/

@@ -19,7 +19,7 @@ contractual, or tortuous, rising directly or indirectly as a result
 of the advise or assistance supplied CUSTOMER in connection with product,
 services or goods supplied under this Agreement.
 ********************************************************************************
-* Project			FreeRTOS_printf
+* Project           FreeRTOS_printf
 * File              console.c
 * Owner             Jiri Kral
 * Version           1.0
@@ -55,26 +55,26 @@ services or goods supplied under this Agreement.
 int_t __read_console(__file_handle handle, uchar_t * buffer, size_t * count)
 {
   uint32_t bytesRemain;
-	bool MsgDone=false;
-	uchar_t new_lin[]={"\n"};
-	int i=0;
-	while (MsgDone==false)
-	{
+    bool MsgDone=false;
+    uchar_t new_lin[]={"\n"};
+    int i=0;
+    while (MsgDone==false)
+    {
     LPUART_DRV_ReceiveData(INST_LPUART1, &buffer[i], 1);
     while(LPUART_DRV_GetReceiveStatus(INST_LPUART1, &bytesRemain) != STATUS_SUCCESS);
     LPUART_DRV_SendData(INST_LPUART1, &buffer[i], 1);
     while(LPUART_DRV_GetTransmitStatus(INST_LPUART1, &bytesRemain) != STATUS_SUCCESS);
     if(buffer[i++] == '\r')
-	 {
-	   buffer[i-1]='\n';
-	   MsgDone = true;
-	 }
+     {
+       buffer[i-1]='\n';
+       MsgDone = true;
+     }
   }
   LPUART_DRV_SendData(INST_LPUART1, new_lin, 1);
-	while(LPUART_DRV_GetTransmitStatus(INST_LPUART1, &bytesRemain) != STATUS_SUCCESS);
-	buffer[i]=0;
-	*count = (size_t)i;
-	return 0;
+    while(LPUART_DRV_GetTransmitStatus(INST_LPUART1, &bytesRemain) != STATUS_SUCCESS);
+    buffer[i]=0;
+    *count = (size_t)i;
+    return 0;
 }
 
 

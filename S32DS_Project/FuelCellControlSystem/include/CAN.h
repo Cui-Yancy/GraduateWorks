@@ -28,7 +28,7 @@ typedef enum
     ID_PID_Parm         =   0x999999U,      //用于更新PID参数
 }CANID_Receive;
 
-#define TX_MessageBuffer	16U		//必须大于等于8，与FIFO个数有关，详细参照Pg.1597
+#define TX_MessageBuffer    16U     //必须大于等于8，与FIFO个数有关，详细参照Pg.1597
 #define CAN0INTPRIORITY     (configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY+2)
 
 void CAN0_Init(void);

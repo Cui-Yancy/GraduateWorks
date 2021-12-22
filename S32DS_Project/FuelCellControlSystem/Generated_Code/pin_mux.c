@@ -7,7 +7,7 @@
 **     Version     : Component 1.2.0, Driver 1.4, CPU db: 3.00.000
 **     Repository  : SDK_S32K14x_09
 **     Compiler    : GNU C Compiler
-**     Date/Time   : 2021-12-17, 16:05, # CodeGen: 13
+**     Date/Time   : 2021-12-22, 15:14, # CodeGen: 19
 **     Abstract    :
 **
 **
@@ -583,7 +583,7 @@ pin_settings_config_t g_pin_mux_InitConfigArr[NUM_OF_CONFIGURED_PINS] =
     {
         .base          = PORTB,
         .pinPortIdx    = 3u,
-        .pullConfig    = PORT_INTERNAL_PULL_NOT_ENABLED,
+        .pullConfig    = PORT_INTERNAL_PULL_DOWN_ENABLED,
         .passiveFilter = false,
         .driveSelect   = PORT_LOW_DRIVE_STRENGTH,
         .mux           = PORT_PIN_DISABLED,
@@ -591,7 +591,7 @@ pin_settings_config_t g_pin_mux_InitConfigArr[NUM_OF_CONFIGURED_PINS] =
         .intConfig     = PORT_DMA_INT_DISABLED,
         .clearIntFlag  = false,
         .gpioBase      = NULL,
-        .digitalFilter = false,
+        .digitalFilter = true,
     },
     {
         .base          = PORTB,
@@ -831,7 +831,7 @@ pin_settings_config_t g_pin_mux_InitConfigArr[NUM_OF_CONFIGURED_PINS] =
     {
         .base          = PORTB,
         .pinPortIdx    = 12u,
-        .pullConfig    = PORT_INTERNAL_PULL_NOT_ENABLED,
+        .pullConfig    = PORT_INTERNAL_PULL_DOWN_ENABLED,
         .passiveFilter = false,
         .driveSelect   = PORT_LOW_DRIVE_STRENGTH,
         .mux           = PORT_PIN_DISABLED,
@@ -839,12 +839,12 @@ pin_settings_config_t g_pin_mux_InitConfigArr[NUM_OF_CONFIGURED_PINS] =
         .intConfig     = PORT_DMA_INT_DISABLED,
         .clearIntFlag  = false,
         .gpioBase      = NULL,
-        .digitalFilter = false,
+        .digitalFilter = true,
     },
     {
         .base          = PORTD,
         .pinPortIdx    = 4u,
-        .pullConfig    = PORT_INTERNAL_PULL_NOT_ENABLED,
+        .pullConfig    = PORT_INTERNAL_PULL_DOWN_ENABLED,
         .passiveFilter = false,
         .driveSelect   = PORT_LOW_DRIVE_STRENGTH,
         .mux           = PORT_PIN_DISABLED,
@@ -852,7 +852,7 @@ pin_settings_config_t g_pin_mux_InitConfigArr[NUM_OF_CONFIGURED_PINS] =
         .intConfig     = PORT_DMA_INT_DISABLED,
         .clearIntFlag  = false,
         .gpioBase      = NULL,
-        .digitalFilter = false,
+        .digitalFilter = true,
     },
     {
         .base          = PORTD,

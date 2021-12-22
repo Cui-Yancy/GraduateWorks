@@ -19,7 +19,7 @@ contractual, or tortuous, rising directly or indirectly as a result
 of the advise or assistance supplied CUSTOMER in connection with product,
 services or goods supplied under this Agreement.
 ********************************************************************************
-* Project			FreeRTOS_printf
+* Project           FreeRTOS_printf
 * File              console.h
 * Owner             Jiri Kral
 * Version           1.0
