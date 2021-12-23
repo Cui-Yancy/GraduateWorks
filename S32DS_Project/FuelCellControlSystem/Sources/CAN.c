@@ -10,7 +10,7 @@
 
 static void CAN_Send(CAN_Type *Base,uint8_t TX_MB,CANMessage message);
 
-uint32_t IdFilter[]={0x7777777,0x1234567,0x666666,0x999999};
+uint32_t IdFilter[]={ID_PWMFAN_SPEED,ID_SYS_ON_OFF,ID_ControlMode,ID_PID_Parm,ID_PAUSE_Dur};
 static flexcan_id_table_t ID_Table={
     .isRemoteFrame = false,
     .isExtendedFrame = true,

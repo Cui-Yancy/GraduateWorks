@@ -7,7 +7,7 @@
 **     Version     : Component 1.2.0, Driver 1.4, CPU db: 3.00.000
 **     Repository  : SDK_S32K14x_09
 **     Compiler    : GNU C Compiler
-**     Date/Time   : 2021-12-22, 15:14, # CodeGen: 19
+**     Date/Time   : 2021-12-23, 15:11, # CodeGen: 21
 **     Abstract    :
 **
 **
@@ -596,10 +596,10 @@ pin_settings_config_t g_pin_mux_InitConfigArr[NUM_OF_CONFIGURED_PINS] =
     {
         .base          = PORTB,
         .pinPortIdx    = 2u,
-        .pullConfig    = PORT_INTERNAL_PULL_NOT_ENABLED,
+        .pullConfig    = PORT_INTERNAL_PULL_DOWN_ENABLED,
         .passiveFilter = false,
         .driveSelect   = PORT_LOW_DRIVE_STRENGTH,
-        .mux           = PORT_PIN_DISABLED,
+        .mux           = PORT_MUX_ALT2,
         .pinLock       = false,
         .intConfig     = PORT_DMA_INT_DISABLED,
         .clearIntFlag  = false,
@@ -740,10 +740,10 @@ pin_settings_config_t g_pin_mux_InitConfigArr[NUM_OF_CONFIGURED_PINS] =
     {
         .base          = PORTE,
         .pinPortIdx    = 7u,
-        .pullConfig    = PORT_INTERNAL_PULL_NOT_ENABLED,
+        .pullConfig    = PORT_INTERNAL_PULL_DOWN_ENABLED,
         .passiveFilter = false,
         .driveSelect   = PORT_LOW_DRIVE_STRENGTH,
-        .mux           = PORT_PIN_DISABLED,
+        .mux           = PORT_MUX_ALT2,
         .pinLock       = false,
         .intConfig     = PORT_DMA_INT_DISABLED,
         .clearIntFlag  = false,

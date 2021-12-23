@@ -5,21 +5,28 @@
 #include "ADC0.h"
 #include "ADC1.h"
 #include "DMA.h"
+#include "FTM.h"
 
 #include "stdio.h"
 
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
+//#include "event_groups.h"
 #include "rtos.h"
 
 TaskHandle_t CANRX_Handler;
 TaskHandle_t CANTX_Handler;
 TaskHandle_t SENSOR_Handler;
+TaskHandle_t CONTROL_Handler;
 TaskHandle_t SYSTEMSTATUS_Handler;
 
 QueueHandle_t CANRX_Queue;
 QueueHandle_t CANTX_Queue;
+QueueHandle_t PWM_Queue;
+QueueHandle_t PAUSE_Queue;
+
+//EventGroupHandle_t EventGroupHandler;
 
 void HardwareInit()
 {
@@ -43,6 +50,9 @@ void HardwareInit()
 
     ADC0_Init();
     ADC1_Init();
+
+    FTM0_Init();        //FTM0_CH7用于产生PWM控制风扇转速
+    FTM1_Init_Fixed();  //FTM1_CH0用于产生脉冲，开关排气阀门
 }
 
 void RTOS_Start()
@@ -95,12 +105,29 @@ void RTOS_Start()
                             (TaskHandle_t *         ) &SENSOR_Handler )  ;   //任务句柄
     if(retValue != pdPASS)
     {
-        printf("[%s,%d]:CANTX task create failed\r\n",__FILE__,__LINE__);
+        printf("[%s,%d]:SENSOR task create failed\r\n",__FILE__,__LINE__);
     }
     else
     {
         #if DEBUG_MODE
-            printf("CANTX task create succeed\r\n");
+            printf("SENSOR task create succeed\r\n");
+        #endif
+    }
+
+    retValue = xTaskCreate( (TaskFunction_t         ) CONTROL             ,   //任务入口函数
+                            (const char *           ) "CONTROL"           ,   //任务名称
+                            (configSTACK_DEPTH_TYPE ) CONTROL_STACKSIZE   ,   //任务堆栈大小
+                            (void *                 ) NULL              ,   //任务输入
+                            (UBaseType_t            ) CONTROL_PRIORITY    ,   //任务优先级
+                            (TaskHandle_t *         ) &CONTROL_Handler )  ;   //任务句柄
+    if(retValue != pdPASS)
+    {
+        printf("[%s,%d]:CONTROL task create failed\r\n",__FILE__,__LINE__);
+    }
+    else
+    {
+        #if DEBUG_MODE
+            printf("CONTROL task create succeed\r\n");
         #endif
     }
 
@@ -143,6 +170,39 @@ void RTOS_Start()
         #endif
     }
 
+    PWM_Queue = xQueueCreate(PWM_LENGTH,sizeof(uint16_t));
+    if(!PWM_Queue){
+      printf("[%s,%d]:PWM Queue create failed\r\n",__FILE__,__LINE__);
+    }
+    else
+    {
+        #if DEBUG_MODE
+            printf("PWM Queue create succeed\r\n");
+        #endif
+    }
+
+    PAUSE_Queue = xQueueCreate(PAUSE_LENGTH,sizeof(uint32_t));
+    if(!PAUSE_Queue){
+      printf("[%s,%d]:PAUSE Queue create failed\r\n",__FILE__,__LINE__);
+    }
+    else
+    {
+        #if DEBUG_MODE
+            printf("PAUSE Queue create succeed\r\n");
+        #endif
+    }
+
+    // EventGroupHandler = xEventGroupCreate();
+    // if(EventGroupHandler == NULL){
+    //     printf("[%s,%d]:EventGroup create failed\r\n",__FILE__,__LINE__);
+    // }
+    // else
+    // {
+    //     #if DEBUG_MODE
+    //         printf("EventGroup create succeed\r\n");
+    //     #endif
+    // }
+
 #if DEBUG_MODE
     printf("Start OS Scheduler\r\n");
 #endif
@@ -154,34 +214,80 @@ void CANRX( void * pvParameters )
 {
     BaseType_t retValue;
     CANMessage CAN_Message;
+    uint16_t PWMDuty = 0;
+    uint32_t PAUSEDuration = 0;
     while(1)
     {
         retValue = xQueueReceive(CANRX_Queue,&CAN_Message,portMAX_DELAY);
-        if(retValue == pdTRUE)
+        if(retValue != pdTRUE)
+        {
+            printf("[%s,%d]:Receive CAN frame from CANRX queue failed\r\n",__FILE__,__LINE__);
+        }
+        else
         {
             #if DEBUG_MODE
                 printf("Receive CAN frame from CANRX queue succeed\r\n");
             #endif
-            PINS_DRV_TogglePins(PTD,1<<GPIO_RGB_BLUE);
-        }
-        else
-        {
-            printf("[%s,%d]:Receive CAN frame from CANRX queue failed\r\n",__FILE__,__LINE__);
+            //PINS_DRV_TogglePins(PTD,1<<GPIO_RGB_BLUE);
+
+            switch (CAN_Message.ID)
+            {
+            case ID_PWMFAN_SPEED:
+                {
+                    PWMDuty = (CAN_Message.MessageArry[0]+(((uint16_t)CAN_Message.MessageArry[1])<<8));
+                    PWMDuty = PWMDuty>PWMFAN_MAX?PWMFAN_MAX:PWMDuty;
+                    PWMDuty = PWMDuty<PWMFAN_MIN?PWMFAN_MIN:PWMDuty;
+                    retValue = xQueueSend(PWM_Queue,&PWMDuty,5);
+                    if(retValue != pdTRUE)
+                    {
+                        printf("[%s,%d]:Send PWM duty to PWM queue failed\r\n",__FILE__,__LINE__);
+                    }
+                    else
+                    {
+                        #if DEBUG_MODE
+                            printf("Send CAN frame to CANTX queue succeed\r\n");
+                        #endif
+                    }
+                }
+                break;
+            case ID_PAUSE_Dur:
+                {
+                    PAUSEDuration = ((uint32_t)CAN_Message.MessageArry[3] << 24) |
+                                    ((uint32_t)CAN_Message.MessageArry[2] << 16) |
+                                    ((uint32_t)CAN_Message.MessageArry[1] << 8)  |
+                                    ((uint32_t)CAN_Message.MessageArry[0] << 0)  ;
+                    retValue = xQueueSend(PAUSE_Queue,&PAUSEDuration,5);
+                    if(retValue != pdTRUE)
+                    {
+                        printf("[%s,%d]:Send PAUSE duration to PAUSE queue failed\r\n",__FILE__,__LINE__);
+                    }
+                    else
+                    {
+                        #if DEBUG_MODE
+                            printf("Send PAUSE duration to PAUSE queue succeed\r\n");
+                        #endif
+                    }
+                }
+                break;
+            default:
+                break;
+            }
+
+            CAN_Message.MessageArry[7]++;
+            retValue = xQueueSend(CANTX_Queue,&CAN_Message,portMAX_DELAY);
+            if(retValue == pdTRUE)
+            {
+                #if DEBUG_MODE
+                    printf("Send CAN frame to CANTX queue succeed\r\n");
+                #endif
+            }
+            else
+            {
+                printf("[%s,%d]:Send CAN frame to CANTX queue failed\r\n",__FILE__,__LINE__);
+            }
         }
 
-        CAN_Message.MessageArry[7]++;
-        retValue = xQueueSend(CANTX_Queue,&CAN_Message,portMAX_DELAY);
-        if(retValue == pdTRUE)
-        {
-            #if DEBUG_MODE
-                printf("Send CAN frame to CANTX queue succeed\r\n");
-            #endif
-            PINS_DRV_TogglePins(PTD,1<<GPIO_RGB_BLUE);
-        }
-        else
-        {
-            printf("[%s,%d]:Send CAN frame to CANTX queue failed\r\n",__FILE__,__LINE__);
-        }
+        
         
         //vTaskDelay(1000);
     }
@@ -259,6 +365,32 @@ void SENSOR( void * pvParameters )
         printf("I(A) = %-10.4f\r\n",I);
 
         vTaskDelay(100);
+    }
+}
+
+void CONTROL( void * pvParameters )
+{
+    BaseType_t retValue;
+    uint16_t PWMDuty = 0;
+    uint32_t PAUSEDuration = 0;
+    while(1)
+    {
+        retValue = xQueueReceive(PWM_Queue,&PWMDuty,1);
+        if(retValue == pdTRUE)
+        {
+            printf("Receive PWMDuty from PWM_Queue succeed\r\nPWMDuty = %d\r\n",PWMDuty);
+            portDISABLE_INTERRUPTS();
+            FTM0_UpdatePWM(FTM0_PWMChannel,PWMDuty);
+            portENABLE_INTERRUPTS();
+        }
+
+        retValue = xQueueReceive(PAUSE_Queue,&PAUSEDuration,1);
+        if(retValue == pdTRUE)
+        {
+            printf("Receive PAUSEDuration from PAUSE_Queue succeed\r\nPAUSEDuration = %lu\r\n",PAUSEDuration);
+            FTM1_CH0_GeneratePause_Fixed(1000,PAUSEDuration);
+            PINS_DRV_TogglePins(PTD,1<<GPIO_RGB_BLUE);
+        }
     }
 }
 

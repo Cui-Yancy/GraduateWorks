@@ -7,7 +7,7 @@
 **     Version     : Component 1.2.0, Driver 1.4, CPU db: 3.00.000
 **     Repository  : SDK_S32K14x_09
 **     Compiler    : GNU C Compiler
-**     Date/Time   : 2021-12-22, 15:14, # CodeGen: 19
+**     Date/Time   : 2021-12-23, 15:11, # CodeGen: 21
 **     Abstract    :
 **
 **     Settings    :
@@ -128,8 +128,8 @@
 **                  Direction                              : <Automatic>
 **                  Channel 6                              : <Automatic>
 **                  Direction                              : <Automatic>
-**                  Channel 7                              : <Automatic>
-**                  Direction                              : <Automatic>
+**                  Channel 7                              : PTE7
+**                  Direction                              : Output
 **                  Fault Input 0                          : <Automatic>
 **                  Fault Input 1                          : <Automatic>
 **                  Fault Input 2                          : <Automatic>
@@ -139,8 +139,8 @@
 **                  External Clock 1                       : <Automatic>
 **                  Quadrature Decoder Phase A Input       : <Automatic>
 **                  Quadrature Decoder Phase B Input       : <Automatic>
-**                  Channel 0                              : <Automatic>
-**                  Direction                              : <Automatic>
+**                  Channel 0                              : PTB2
+**                  Direction                              : Output
 **                  Channel 1                              : <Automatic>
 **                  Direction                              : <Automatic>
 **                  Channel 2                              : <Automatic>
@@ -1009,7 +1009,7 @@
 **                Interrupt Configuration Field            : <Automatic>
 **                Pin Mux Field                            : <Automatic>
 **                Lock Field                               : <Automatic>
-**                Pull Enable Field                        : <Automatic>
+**                Pull Enable Field                        : Enabled
 **                Pull Select Field                        : <Automatic>
 **                Initial Value Field                      : <Automatic>
 **                Digital Filter Field                     : <Automatic>
@@ -1119,7 +1119,7 @@
 **                Interrupt Configuration Field            : <Automatic>
 **                Pin Mux Field                            : <Automatic>
 **                Lock Field                               : <Automatic>
-**                Pull Enable Field                        : <Automatic>
+**                Pull Enable Field                        : Enabled
 **                Pull Select Field                        : <Automatic>
 **                Initial Value Field                      : <Automatic>
 **                Digital Filter Field                     : <Automatic>

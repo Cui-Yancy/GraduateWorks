@@ -26,6 +26,7 @@ typedef enum
     ID_SYS_ON_OFF       =   0x1234567U,
     ID_ControlMode      =   0x666666U,      //用于表示系统控制模式，包括：风扇占空比手动/自动
     ID_PID_Parm         =   0x999999U,      //用于更新PID参数
+    ID_PAUSE_Dur        =   0x980923U,      //用于测试排气阀门脉冲时间
 }CANID_Receive;
 
 #define TX_MessageBuffer    16U     //必须大于等于8，与FIFO个数有关，详细参照Pg.1597
