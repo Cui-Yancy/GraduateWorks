@@ -26,26 +26,26 @@ typedef enum{
     byte_32=5,
 }TransferSize_T;
 typedef struct{
-    uint32_t SAddr;                 //婧愬湴鍧€--娉ㄦ剰涓�32浣嶅湴鍧€锛屽彲鑳介渶瑕佷娇鐢�&瀵诲潃
-    uint16_t SOffset;               //婧愬湴鍧€鍋忕Щ閲�
-    uint8_t SMode;                  //婧愭ā寮�--闇€瑕佽繘涓€姝ラ獙璇侊紝琛ㄧず浼犺緭2^娆℃柟娆★紝閫氬父璁句负0绂佺敤
-    TransferSize_T SSize;           //婧愪紶杈撳ぇ灏�
+    uint32_t SAddr;                 //源地址--注意为32位地址，可能需要使用&寻址
+    uint16_t SOffset;               //源地址偏移量
+    uint8_t SMode;                  //源模式--需要进一步验证，表示传输2^次方次，通常设为0禁用
+    TransferSize_T SSize;           //源传输大小
     uint8_t DMode;
     TransferSize_T DSize;
-    uint32_t MinorLoopTransBytes;   //鍗曟DMA璇锋眰浼犺緭瀛楄妭鏁�--鍏蜂綋浣跨敤MLNO-MLOFFYES-MLOFFNO闇€杩涗竴姝ュ弬鑰僷g345
-    uint32_t SLastAddrOffset;       //涓诲惊鐜粨鏉熷悗鐨勬簮鍦板潃鍋忕Щ閲�
+    uint32_t MinorLoopTransBytes;   //单次DMA请求传输字节数--具体使用MLNO-MLOFFYES-MLOFFNO需进一步参考pg345
+    uint32_t SLastAddrOffset;       //主循环结束后的源地址偏移量
     uint32_t DAddr;
     uint16_t DOffset;
-//  bool EnLink;                    //榛樿涓嶄娇鐢ㄩ€氶亾閾炬帴--鍥犳瀵勫瓨鍣ㄤ负ELINKNO
-    uint16_t MajorIterCount;        //褰撳墠涓诲惊鐜鏁板櫒锛屾寰幆缁撴潫鏃堕€掑噺
-    uint32_t DLastAddrAdjust;       //涓诲惊鐜粨鏉熷悗鐩爣鍦板潃鍋忕Щ閲�
-//  uint8_t Bandwidth;              //鐢ㄤ簬缂撳啿锛岄粯璁や笉浣跨敤
-//  bool EnSG;                      //鐢ㄤ簬鍦ㄤ富寰幆瀹屾垚鍚庯紝淇敼褰撳墠閫氶亾鐨凾CD璁剧疆锛岄粯璁や笉浣跨敤
-    bool DisableReq;                //鍦ㄤ富寰幆瀹屾垚鍚庯紝鏄惁闇€瑕佺‖浠惰嚜鍔ㄦ竻闄ら€氶亾璇锋眰锛屽鏋滆涓�1锛岃〃绀哄湪涓诲惊鐜畬鎴愬悗锛岄€氶亾璇锋眰鏃犳晥锛岄渶鍐嶆鍚姩璇锋眰
-    bool EnableHalfInt;             //涓诲惊鐜畬鎴愪竴鑸椂浜х敓涓柇
-    bool EnableMajorInt;            //涓诲惊鐜畬鎴愭椂浜х敓涓柇
-    bool StartChan;                 //杞欢鍐�1鍙彂鍑洪€氶亾璇锋眰锛屽惎鍔ㄥ悗纭欢鑷姩娓呴浂
-    uint16_t StartMajorIterCount;   //鏃犻€氶亾閾炬帴锛屼娇鐢‥LINKNO瀵勫瓨鍣紝琛ㄧず璧峰涓诲惊鐜鏁�
+//  bool EnLink;                    //默认不使用通道链接--因此寄存器为ELINKNO
+    uint16_t MajorIterCount;        //当前主循环计数器，次循环结束时递减
+    uint32_t DLastAddrAdjust;       //主循环结束后目标地址偏移量
+//  uint8_t Bandwidth;              //用于缓冲，默认不使用
+//  bool EnSG;                      //用于在主循环完成后，修改当前通道的TCD设置，默认不使用
+    bool DisableReq;                //在主循环完成后，是否需要硬件自动清除通道请求，如果设为1，表示在主循环完成后，通道请求无效，需再次启动请求
+    bool EnableHalfInt;             //主循环完成一半时产生中断
+    bool EnableMajorInt;            //主循环完成时产生中断
+    bool StartChan;                 //软件写1可发出通道请求，启动后硬件自动清零
+    uint16_t StartMajorIterCount;   //无通道链接，使用ELINKNO寄存器，表示起始主循环次数
 }DMA_TCD_Config_T;
 
 void DMAMUX_Init_Yancy(uint8_t Channel,TrigSource_T TrigSource);

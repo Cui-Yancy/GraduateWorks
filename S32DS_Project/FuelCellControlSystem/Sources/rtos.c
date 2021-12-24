@@ -12,7 +12,8 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
-//#include "event_groups.h"
+#include "semphr.h"
+#include "event_groups.h"
 #include "rtos.h"
 
 TaskHandle_t CANRX_Handler;
@@ -26,7 +27,9 @@ QueueHandle_t CANTX_Queue;
 QueueHandle_t PWM_Queue;
 QueueHandle_t PAUSE_Queue;
 
-//EventGroupHandle_t EventGroupHandler;
+EventGroupHandle_t EventGroupHandler;
+
+SemaphoreHandle_t UART_MutexSemaphore;
 
 void HardwareInit()
 {
@@ -192,16 +195,22 @@ void RTOS_Start()
         #endif
     }
 
-    // EventGroupHandler = xEventGroupCreate();
-    // if(EventGroupHandler == NULL){
-    //     printf("[%s,%d]:EventGroup create failed\r\n",__FILE__,__LINE__);
-    // }
-    // else
-    // {
-    //     #if DEBUG_MODE
-    //         printf("EventGroup create succeed\r\n");
-    //     #endif
-    // }
+    UART_MutexSemaphore = xSemaphoreCreateMutex();   //互斥信号量在创建时会进行释放操作，xQueueGenericSend，因此初始化后有效
+    if(UART_MutexSemaphore == NULL){                //创建不成功
+        printf("UART MutexSemaphore create failed\r\n");
+    }
+
+    EventGroupHandler = xEventGroupCreate();
+    if(EventGroupHandler == NULL){
+        printf("[%s,%d]:EventGroup create failed\r\n",__FILE__,__LINE__);
+    }
+    else
+    {
+        xEventGroupClearBits(EventGroupHandler,EVENT_BIT(Event_On)|EVENT_BIT(Event_Off));
+        #if DEBUG_MODE
+            printf("EventGroup create succeed\r\n");
+        #endif
+    }
 
 #if DEBUG_MODE
     printf("Start OS Scheduler\r\n");
@@ -228,7 +237,7 @@ void CANRX( void * pvParameters )
             #if DEBUG_MODE
                 printf("Receive CAN frame from CANRX queue succeed\r\n");
             #endif
-            //PINS_DRV_TogglePins(PTD,1<<GPIO_RGB_BLUE);
+            PINS_DRV_TogglePins(PTD,1<<GPIO_RGB_BLUE);
 
             switch (CAN_Message.ID)
             {
@@ -266,6 +275,28 @@ void CANRX( void * pvParameters )
                         #if DEBUG_MODE
                             printf("Send PAUSE duration to PAUSE queue succeed\r\n");
                         #endif
+                    }
+                }
+                break;
+            case ID_SYS_ON_OFF:
+                {
+                    if(CAN_Message.MessageArry[0] == 0) //关机请求
+                    {
+                        xEventGroupSetBits(EventGroupHandler,EVENT_BIT(Event_Off));
+                        //不需要判断这个操作成功与否，可以判断是否执行了这个标志位事件
+                        //因为可能会有任务在等待这个标志位，刚置高就消失了
+                        // if((uxBits & EVENT_BIT(Event_Off)) != EVENT_BIT(Event_Off))
+                        // {
+                        //     printf("[%s,%d]:set event off bit failed\r\n",__FILE__,__LINE__);
+                        // }
+                    }
+                    else if(CAN_Message.MessageArry[0] == 1)
+                    {
+                        xEventGroupSetBits(EventGroupHandler,EVENT_BIT(Event_On));
+                        // if((uxBits & EVENT_BIT(Event_On)) != EVENT_BIT(Event_On))
+                        // {
+                        //     printf("[%s,%d]:set event on bit failed\r\n",__FILE__,__LINE__);
+                        // }
                     }
                 }
                 break;
@@ -320,51 +351,88 @@ void SENSOR( void * pvParameters )
     double T = 0.000,I = 0.0,V = 0.00;
     CANMessage CAN_Message;
     BaseType_t retValue;
+    EventBits_t uxBits; 
     while(1)
     {
-        ADC0_CalculateT(&T,&CAN_Message);
-        retValue = xQueueSend(CANTX_Queue,&CAN_Message,portMAX_DELAY);
-        if(retValue == pdTRUE)
-        {
-            #if DEBUG_MODE
-                printf("Send CAN frame to CANTX queue succeed\r\n");
-            #endif
+        if(EventGroupHandler != NULL){
+            uxBits = xEventGroupWaitBits((EventGroupHandle_t ) EventGroupHandler,   //时间标志句柄
+                                         (EventBits_t        ) EVENT_BIT(Event_T),  //等待的位
+                                         (BaseType_t         ) pdTRUE,              //退出是否清零
+                                         (BaseType_t         ) pdFALSE,             //是否等待所有位
+                                         (TickType_t         ) 2 );                 //阻塞时间
+            if((uxBits & EVENT_BIT(Event_T)) == EVENT_BIT(Event_T))
+            {
+                ADC0_CalculateT(&T,&CAN_Message);
+                retValue = xQueueSend(CANTX_Queue,&CAN_Message,portMAX_DELAY);
+                if(retValue == pdTRUE)
+                {
+                    #if DEBUG_MODE
+                        printf("Send CAN frame to CANTX queue succeed\r\n");
+                    #endif
+                }
+                else
+                {
+                    printf("[%s,%d]:Send CAN frame to CANTX queue failed\r\n",__FILE__,__LINE__);
+                }
+            }
         }
-        else
-        {
-            printf("[%s,%d]:Send CAN frame to CANTX queue failed\r\n",__FILE__,__LINE__);
-        }
-        printf("T(°C) = %-14.4f",T);
 
-        ADC1_CalculateV(&V,&CAN_Message);
-        retValue = xQueueSend(CANTX_Queue,&CAN_Message,portMAX_DELAY);
-        if(retValue == pdTRUE)
-        {
-            #if DEBUG_MODE
-                printf("Send CAN frame to CANTX queue succeed\r\n");
-            #endif
+        if(EventGroupHandler != NULL){
+            uxBits = xEventGroupWaitBits((EventGroupHandle_t ) EventGroupHandler,   //时间标志句柄
+                                         (EventBits_t        ) EVENT_BIT(Event_I),  //等待的位
+                                         (BaseType_t         ) pdTRUE,              //退出是否清零
+                                         (BaseType_t         ) pdFALSE,             //是否等待所有位
+                                         (TickType_t         ) 2 );                 //阻塞时间
+            if((uxBits & EVENT_BIT(Event_I)) == EVENT_BIT(Event_I))
+            {
+                ADC1_CalculateI(&I,&CAN_Message);
+                retValue = xQueueSend(CANTX_Queue,&CAN_Message,portMAX_DELAY);
+                if(retValue == pdTRUE)
+                {
+                    #if DEBUG_MODE
+                        printf("Send CAN frame to CANTX queue succeed\r\n");
+                    #endif
+                }
+                else
+                {
+                    printf("[%s,%d]:Send CAN frame to CANTX queue failed\r\n",__FILE__,__LINE__);
+                }
+            }
         }
-        else
-        {
-            printf("[%s,%d]:Send CAN frame to CANTX queue failed\r\n",__FILE__,__LINE__);
+        
+        if(EventGroupHandler != NULL){
+            uxBits = xEventGroupWaitBits((EventGroupHandle_t ) EventGroupHandler,   //时间标志句柄
+                                         (EventBits_t        ) EVENT_BIT(Event_V),  //等待的位
+                                         (BaseType_t         ) pdTRUE,              //退出是否清零
+                                         (BaseType_t         ) pdFALSE,             //是否等待所有位
+                                         (TickType_t         ) 2 );                 //阻塞时间
+            if((uxBits & EVENT_BIT(Event_V)) == EVENT_BIT(Event_V))
+            {
+                ADC1_CalculateV(&V,&CAN_Message);
+                retValue = xQueueSend(CANTX_Queue,&CAN_Message,portMAX_DELAY);
+                if(retValue == pdTRUE)
+                {
+                    #if DEBUG_MODE
+                        printf("Send CAN frame to CANTX queue succeed\r\n");
+                    #endif
+                }
+                else
+                {
+                    printf("[%s,%d]:Send CAN frame to CANTX queue failed\r\n",__FILE__,__LINE__);
+                }
+            }
         }
+
+        #if DEBUG_MODE
+        if(xSemaphoreTake(UART_MutexSemaphore,10) == pdTRUE)
+        {
+            printf("T(°C) = %-14.4f",T);
             printf("V(V) = %-10.4f",V);
-
-        ADC1_CalculateI(&I,&CAN_Message);
-        retValue = xQueueSend(CANTX_Queue,&CAN_Message,portMAX_DELAY);
-        if(retValue == pdTRUE)
-        {
-            #if DEBUG_MODE
-                printf("Send CAN frame to CANTX queue succeed\r\n");
-            #endif
+            printf("I(A) = %-10.4f\r\n",I);
+            xSemaphoreGive(UART_MutexSemaphore);
         }
-        else
-        {
-            printf("[%s,%d]:Send CAN frame to CANTX queue failed\r\n",__FILE__,__LINE__);
-        }
-        printf("I(A) = %-10.4f\r\n",I);
-
-        vTaskDelay(100);
+        #endif
+        vTaskDelay(1);
     }
 }
 
@@ -373,23 +441,58 @@ void CONTROL( void * pvParameters )
     BaseType_t retValue;
     uint16_t PWMDuty = 0;
     uint32_t PAUSEDuration = 0;
+    EventBits_t uxBits;
     while(1)
     {
+        if(EventGroupHandler != NULL){
+            uxBits = xEventGroupWaitBits((EventGroupHandle_t ) EventGroupHandler,   //时间标志句柄
+                                         (EventBits_t        ) EVENT_BIT(Event_On),  //等待的位
+                                         (BaseType_t         ) pdTRUE,              //退出是否清零
+                                         (BaseType_t         ) pdFALSE,             //是否等待所有位
+                                         (TickType_t         ) 2 );                 //阻塞时间
+            if((uxBits & EVENT_BIT(Event_On)) == EVENT_BIT(Event_On))
+            {
+                printf("Swich On\r\n");
+                OpenH2();
+                FTM1_CH0_GeneratePause_Fixed(0,3000*1000);
+                FTM0_UpdatePWM(FTM0_PWMChannel,800);
+            }
+        }
+
+        if(EventGroupHandler != NULL){
+            uxBits = xEventGroupWaitBits((EventGroupHandle_t ) EventGroupHandler,   //时间标志句柄
+                                         (EventBits_t        ) EVENT_BIT(Event_Off),  //等待的位
+                                         (BaseType_t         ) pdTRUE,              //退出是否清零
+                                         (BaseType_t         ) pdFALSE,             //是否等待所有位
+                                         (TickType_t         ) 2 );                 //阻塞时间
+            if((uxBits & EVENT_BIT(Event_Off)) == EVENT_BIT(Event_Off))
+            {
+                printf("Swich Off\r\n");
+                CloseH2();
+                FTM0_UpdatePWM(FTM0_PWMChannel,0);
+            }
+        }
+
         retValue = xQueueReceive(PWM_Queue,&PWMDuty,1);
         if(retValue == pdTRUE)
         {
-            printf("Receive PWMDuty from PWM_Queue succeed\r\nPWMDuty = %d\r\n",PWMDuty);
-            portDISABLE_INTERRUPTS();
+            if(xSemaphoreTake(UART_MutexSemaphore,10) == pdTRUE)
+            {
+                printf("Receive PWMDuty from PWM_Queue succeed\r\nPWMDuty = %.2f%%\r\n",PWMDuty/100.0);
+                xSemaphoreGive(UART_MutexSemaphore);
+            }
             FTM0_UpdatePWM(FTM0_PWMChannel,PWMDuty);
-            portENABLE_INTERRUPTS();
         }
 
         retValue = xQueueReceive(PAUSE_Queue,&PAUSEDuration,1);
         if(retValue == pdTRUE)
         {
-            printf("Receive PAUSEDuration from PAUSE_Queue succeed\r\nPAUSEDuration = %lu\r\n",PAUSEDuration);
+            if(xSemaphoreTake(UART_MutexSemaphore,10) == pdTRUE)
+            {
+                printf("Receive PAUSEDuration from PAUSE_Queue succeed\r\nPAUSEDuration = %luus\r\n",PAUSEDuration);
+                xSemaphoreGive(UART_MutexSemaphore);
+            }
             FTM1_CH0_GeneratePause_Fixed(1000,PAUSEDuration);
-            PINS_DRV_TogglePins(PTD,1<<GPIO_RGB_BLUE);
         }
     }
 }
@@ -426,18 +529,25 @@ void SYSTEMSTATUS( void * pvParameters )
             ArraySize = uxTaskGetSystemState((TaskStatus_t  *) StatusArray   ,  //存储任务状态信息的结构体数组
                                             (UBaseType_t    ) ArraySize     ,
                                             (uint32_t      *) &TotalRunTime );
-            printf("TaskName   Pri Num Stack RunTime    Status\r\n");
-            for(x=0;x<ArraySize;x++)
+            if(xSemaphoreTake(UART_MutexSemaphore,10) == pdTRUE)
             {
-                //通过串口打印出获取到的系统任务的有关信息，比如任务名称、
-                //任务优先级和任务编号。
-                printf("%-11s%-4d%-4d%-6d%-11lu%-6d\r\n",
-                StatusArray[x].pcTaskName,
-                (int)StatusArray[x].uxCurrentPriority,
-                (int)StatusArray[x].xTaskNumber,
-                StatusArray[x].usStackHighWaterMark,
-                StatusArray[x].ulRunTimeCounter,
-                StatusArray[x].eCurrentState);//任务编号表示创建先后顺序，首先创建开始任务
+                printf("TaskName   Pri Num Stack RunTime    Status\r\n");
+                for(x=0;x<ArraySize;x++)
+                {
+                    //通过串口打印出获取到的系统任务的有关信息，比如任务名称、
+                    //任务优先级和任务编号。
+                    printf("%-11s%-4d%-4d%-6d%-11lu%-6d\r\n",
+                    StatusArray[x].pcTaskName,
+                    (int)StatusArray[x].uxCurrentPriority,
+                    (int)StatusArray[x].xTaskNumber,
+                    StatusArray[x].usStackHighWaterMark,
+                    StatusArray[x].ulRunTimeCounter,
+                    StatusArray[x].eCurrentState);//任务编号表示创建先后顺序，首先创建开始任务
+                }
+                printf("RemainHeapSize = %d\r\n",xPortGetFreeHeapSize());
+                printf("MinRemainHeapSize = %d\r\n",xPortGetMinimumEverFreeHeapSize());
+                printf("\r\n");
+                xSemaphoreGive(UART_MutexSemaphore);
             }
         }
         else
@@ -445,12 +555,9 @@ void SYSTEMSTATUS( void * pvParameters )
             printf("[%s,%d]:pvPortMalloc failed\r\n",__FILE__,__LINE__);
         }
 
-        printf("RemainHeapSize = %d\r\n",xPortGetFreeHeapSize());
-        printf("MinRemainHeapSize = %d\r\n",xPortGetMinimumEverFreeHeapSize());
-        printf("\r\n");
         vPortFree(StatusArray);
         PINS_DRV_TogglePins(PTD,1<<GPIO_RGB_GREEN);
         
-        vTaskDelay(1000);
+        vTaskDelay(5000);
     }
 }

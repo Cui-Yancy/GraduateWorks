@@ -7,7 +7,7 @@
 **     Version     : Component 1.2.0, Driver 1.4, CPU db: 3.00.000
 **     Repository  : SDK_S32K14x_09
 **     Compiler    : GNU C Compiler
-**     Date/Time   : 2021-12-23, 15:11, # CodeGen: 21
+**     Date/Time   : 2021-12-24, 17:20, # CodeGen: 28
 **     Abstract    :
 **
 **     Settings    :
@@ -315,8 +315,8 @@
 **                  Direction                              : <Automatic>
 **                  Pin 14                                 : <Automatic>
 **                  Direction                              : <Automatic>
-**                  Pin 15                                 : <Automatic>
-**                  Direction                              : <Automatic>
+**                  Pin 15                                 : PTC15
+**                  Direction                              : Output
 **                  Pin 16                                 : <Automatic>
 **                  Direction                              : <Automatic>
 **                  Pin 17                                 : <Automatic>
@@ -979,7 +979,7 @@
 **                Interrupt Configuration Field            : <Automatic>
 **                Pin Mux Field                            : <Automatic>
 **                Lock Field                               : <Automatic>
-**                Pull Enable Field                        : <Automatic>
+**                Pull Enable Field                        : Enabled
 **                Pull Select Field                        : <Automatic>
 **                Initial Value Field                      : <Automatic>
 **                Digital Filter Field                     : <Automatic>

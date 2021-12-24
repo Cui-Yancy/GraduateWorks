@@ -12,6 +12,14 @@ void GPIO_Init()
     INT_SYS_EnableIRQ(PORTC_IRQn);
 }
 
+void OpenH2(void){
+    PINS_DRV_SetPins(PTC,1<<GPIO_INVALVE);
+}
+
+void CloseH2(void){
+    PINS_DRV_ClearPins(PTC,1<<GPIO_INVALVE);
+}
+
 void GPIO_ButtonIRQHandler(){
     uint32_t ButtonPressed = PINS_DRV_GetPortIntFlag(PORTC) & (1<<GPIO_BUTTON_R);
     if(ButtonPressed != 0){

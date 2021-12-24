@@ -92,11 +92,11 @@ void CAN0_IRQHandler(){
                     printf("Send CAN frame to queue succeed\r\n");
                 #endif
                 //CAN0_Send(CAN_Message);
+                portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
             }else{
                 printf("[%s,%d]:Send CAN frame to queue failed\r\n",__FILE__,__LINE__);
             }
         }
-        portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
         CAN0->IFLAG1 = 1<<CAN_IFLAG1_BUF5I_SHIFT;//
     }else{
         CAN0->IFLAG1 = ~((uint16_t)((1<<CAN_IFLAG1_BUF5I_SHIFT)));

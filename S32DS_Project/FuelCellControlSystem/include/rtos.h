@@ -10,13 +10,13 @@
 #define CANTX_STACKSIZE             100
 #define CANTX_PRIORITY              (configMAX_PRIORITIES-1)
 
-#define CONTROL_STACKSIZE           500
+#define CONTROL_STACKSIZE           400
 #define CONTROL_PRIORITY            (configMAX_PRIORITIES-2)
 
-#define SENSOR_STACKSIZE            500
+#define SENSOR_STACKSIZE            350
 #define SENSOR_PRIORITY             (configMAX_PRIORITIES-3)
 
-#define SYSTEMSTATUS_STACKSIZE      400
+#define SYSTEMSTATUS_STACKSIZE      300
 #define SYSTEMSTATUS_PRIORITY       0
 
 //队列配置
@@ -26,12 +26,15 @@
 #define PAUSE_LENGTH                2
 
 //事件标志组配置
-// typedef enum
-// {
-//     Event_PWM = 0,
-//     Event_Pause = 1
-// }EventBits;
-// #define EVENT_BIT(n)                (1<<n)
+typedef enum
+{
+    Event_T = 0,
+    Event_I = 1,
+    Event_V = 2,
+    Event_On = 3,
+    Event_Off = 4,
+}EventBits;
+#define EVENT_BIT(n)                (1<<n)
 
 #define DEBUG_MODE                  0
 

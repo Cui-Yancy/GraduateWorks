@@ -11,7 +11,7 @@
 #define ADC1_ReferenceV 4.99f
 //#define AssistR       996U
 
-#define ADC1_V_Channel  1U  //ADC1_SE6  PTD4
+//#define ADC1_V_Channel  1U  //ADC1_SE6  PTD4
 #define ADC1_V_ResultNum    100U
 
 extern volatile uint16_t ADC1_Result[ADC1_ResultNum],ADC1_V_Result[ADC1_V_ResultNum];

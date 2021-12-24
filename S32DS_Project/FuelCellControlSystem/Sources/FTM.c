@@ -39,7 +39,7 @@ void FTM0_Init(void) {
                                         /* CHIE (Chan Interrupt Ena) = 0 (default) */
                                         /* MSB:MSA (chan Mode Select)=0b10, Edge Align PWM*/
                                         /* ELSB:ELSA (chan Edge/Level Select)=0b10, low true */
-    FTM0->CONTROLS[7].CnV =  19999;       /* FTM0 ch1 compare value (~75% duty cycle) */
+    FTM0->CONTROLS[7].CnV =  0;       /* FTM0 ch1 compare value (~75% duty cycle) */
 
     FTM0->SC |= FTM_SC_CLKS(3);
 }
@@ -53,11 +53,12 @@ void FTM0_Init(void) {
 void FTM0_UpdatePWM(uint8_t CH,uint16_t Duty){
     uint16_t MOD = FTM0->MOD;
     FTM0->CONTROLS[CH].CnV =  MOD*(Duty)/10000.0;
+    //while(FTM0->CNT != FTM0->CNTIN);
 }
 
 void FTM1_Channel0_OC_IRQHandler(void){
     static uint16_t CurrentCycle = 0;
-    uint16_t Count = 0;
+    //uint16_t Count = 0;
     if(NeedPause){//此时已经拉高
         CurrentCycle++;
     }else{//此时已经拉低
@@ -69,8 +70,8 @@ void FTM1_Channel0_OC_IRQHandler(void){
     }
     if((CurrentCycle-1)==PauseCycle){
         FTM1->CONTROLS[0].CnV = (FTM1->CONTROLS[0].CnV+PauseDurationTicks)%(FTM1->MOD+1);
-        Count = FTM1->CNT;
-        while(FTM1->CNT<=Count+1);
+        //Count = FTM1->CNT;
+        //while(FTM1->CNT<=Count+1);
         NeedPause = false;
         CurrentCycle = 0;
         //Delay(WaitToChange);
@@ -118,8 +119,7 @@ void FTM1_Init_Fixed(void) {
     //FTM1->SC |= FTM_SC_CLKS(3);
 }
 
-/*用于产生单个时间周期内的脉冲
- * 此处脉冲时间最大值为524ms
+/*用于产生脉冲
  * DurationTime:us
  * */
 void FTM1_CH0_GeneratePause_Fixed(uint32_t DelayTime,uint32_t DurationTime){

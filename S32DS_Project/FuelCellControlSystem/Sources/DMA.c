@@ -6,6 +6,10 @@
 #include "adc_driver.h"
 #include "adConv2.h"
 
+#include "FreeRTOS.h"
+#include "event_groups.h"
+#include "rtos.h"
+
 /*先使能ADC0的温度采集DMA，传输100组数据后进入中断，切换到ADC1进行电流采集
  * */
 void DMA_Init(void){
@@ -178,21 +182,56 @@ void DMA_ChannelReqEnable(uint8_t Channel){
     DMA->ERQ    =   1<<Channel;     /*使能该通道的DMA请求*/
 }
 
+extern EventGroupHandle_t EventGroupHandler;
+
 void DMA_CH0_IRQHandler(){//温度采集100组数据完成，下一个是电流采集
+    BaseType_t xHigherPriorityTaskWoken, xResult;
+    if(EventGroupHandler)
+    {
+        xResult = xEventGroupSetBitsFromISR(EventGroupHandler,
+                                            EVENT_BIT(Event_T),
+                                            &xHigherPriorityTaskWoken);
+        if(xResult != pdFAIL)
+        {
+            portYIELD_FROM_ISR( xHigherPriorityTaskWoken ); 
+        }
+    }
     ADC_DRV_ConfigChan(INST_ADCONV2, ADC1_Channel, &adConv2_ChnConfig0);
     DMA_ChannelReqEnable(DMA_ADC1_I_Channel4);
     DMA->INT |= 1<<0;
 }
 
 void DMA_CH4_IRQHandler(){//电流采集100组数据完成，下一个是电压采集
+    BaseType_t xHigherPriorityTaskWoken, xResult;
+    if(EventGroupHandler)
+    {
+        xResult = xEventGroupSetBitsFromISR(EventGroupHandler,
+                                            EVENT_BIT(Event_I),
+                                            &xHigherPriorityTaskWoken);
+        if(xResult != pdFAIL)
+        {
+            portYIELD_FROM_ISR( xHigherPriorityTaskWoken ); 
+        }
+    }
     ADC_DRV_ConfigChan(INST_ADCONV2, ADC1_Channel/*uint8_t chanIndex*/, &adConv2_ChnConfig1);
     DMA_ChannelReqEnable(DMA_ADC1_V_Channel3);
     DMA->INT |= 1<<4;
 }
 
 void DMA_CH3_IRQHandler(){//电压采集100组数据完成，下一个是温度采集
+    BaseType_t xHigherPriorityTaskWoken, xResult;
+    if(EventGroupHandler)
+    {
+        xResult = xEventGroupSetBitsFromISR(EventGroupHandler,
+                                            EVENT_BIT(Event_V),
+                                            &xHigherPriorityTaskWoken);
+        if(xResult != pdFAIL)
+        {
+            portYIELD_FROM_ISR( xHigherPriorityTaskWoken ); 
+        }
+    }
     DMA_ChannelReqEnable(DMA_ADC0_T_Channel0);
-    DMA->INT |= 3<<1;
+    DMA->INT |= 1<<3;
 }
 
 
