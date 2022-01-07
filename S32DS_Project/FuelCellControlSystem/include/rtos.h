@@ -28,13 +28,16 @@
 //事件标志组配置
 typedef enum
 {
-    Event_T = 0,
+    Event_T = 0,            //温度数组DMA传输完成标志位
     Event_I = 1,
     Event_V = 2,
-    Event_On = 3,
-    Event_Off = 4,
+    Event_On = 3,           //开机指令标志位
+    Event_Off = 4,          //关机指令标志位
+    Flag_Status = 5,        //系统状态标志位
 }EventBits;
 #define EVENT_BIT(n)                (1<<n)
+#define SYSTEM_ON                   (1<<Flag_Status)
+#define SYSTEM_OFF                  0
 
 #define DEBUG_MODE                  0
 

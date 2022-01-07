@@ -206,7 +206,7 @@ void RTOS_Start()
     }
     else
     {
-        xEventGroupClearBits(EventGroupHandler,EVENT_BIT(Event_On)|EVENT_BIT(Event_Off));
+        xEventGroupClearBits(EventGroupHandler,EVENT_BIT(Event_On)|EVENT_BIT(Event_Off)|EVENT_BIT(Flag_Status));
         #if DEBUG_MODE
             printf("EventGroup create succeed\r\n");
         #endif
@@ -225,6 +225,7 @@ void CANRX( void * pvParameters )
     CANMessage CAN_Message;
     uint16_t PWMDuty = 0;
     uint32_t PAUSEDuration = 0;
+    EventBits_t uxBits;
     while(1)
     {
         retValue = xQueueReceive(CANRX_Queue,&CAN_Message,portMAX_DELAY);
@@ -282,21 +283,37 @@ void CANRX( void * pvParameters )
                 {
                     if(CAN_Message.MessageArry[0] == 0) //关机请求
                     {
-                        xEventGroupSetBits(EventGroupHandler,EVENT_BIT(Event_Off));
+                        uxBits = xEventGroupGetBits(EventGroupHandler);
+                        if((uxBits & EVENT_BIT(Flag_Status)) == SYSTEM_ON)
+                        {
+                            xEventGroupSetBits(EventGroupHandler,EVENT_BIT(Event_Off));
                         //不需要判断这个操作成功与否，可以判断是否执行了这个标志位事件
                         //因为可能会有任务在等待这个标志位，刚置高就消失了
                         // if((uxBits & EVENT_BIT(Event_Off)) != EVENT_BIT(Event_Off))
                         // {
                         //     printf("[%s,%d]:set event off bit failed\r\n",__FILE__,__LINE__);
                         // }
+                        }
+                        else
+                        {
+                            printf("Switch off failed, system already off\r\n");
+                        }
                     }
                     else if(CAN_Message.MessageArry[0] == 1)
                     {
-                        xEventGroupSetBits(EventGroupHandler,EVENT_BIT(Event_On));
+                        uxBits = xEventGroupGetBits(EventGroupHandler);
+                        if((uxBits & EVENT_BIT(Flag_Status)) == SYSTEM_OFF)
+                        {
+                            xEventGroupSetBits(EventGroupHandler,EVENT_BIT(Event_On));
                         // if((uxBits & EVENT_BIT(Event_On)) != EVENT_BIT(Event_On))
                         // {
                         //     printf("[%s,%d]:set event on bit failed\r\n",__FILE__,__LINE__);
                         // }
+                        }
+                        else
+                        {
+                            printf("Switch on failed, system already on\r\n");
+                        }
                     }
                 }
                 break;
@@ -351,7 +368,7 @@ void SENSOR( void * pvParameters )
     double T = 0.000,I = 0.0,V = 0.00;
     CANMessage CAN_Message;
     BaseType_t retValue;
-    EventBits_t uxBits; 
+    EventBits_t uxBits;
     while(1)
     {
         if(EventGroupHandler != NULL){
@@ -456,10 +473,8 @@ void CONTROL( void * pvParameters )
                 OpenH2();
                 FTM1_CH0_GeneratePause_Fixed(0,3000*1000);
                 FTM0_UpdatePWM(FTM0_PWMChannel,800);
+                xEventGroupSetBits(EventGroupHandler,EVENT_BIT(Flag_Status));
             }
-        }
-
-        if(EventGroupHandler != NULL){
             uxBits = xEventGroupWaitBits((EventGroupHandle_t ) EventGroupHandler,   //时间标志句柄
                                          (EventBits_t        ) EVENT_BIT(Event_Off),  //等待的位
                                          (BaseType_t         ) pdTRUE,              //退出是否清零
@@ -470,6 +485,7 @@ void CONTROL( void * pvParameters )
                 printf("Swich Off\r\n");
                 CloseH2();
                 FTM0_UpdatePWM(FTM0_PWMChannel,0);
+                xEventGroupClearBits(EventGroupHandler,EVENT_BIT(Flag_Status));
             }
         }
 
