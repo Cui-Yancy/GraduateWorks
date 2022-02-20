@@ -317,6 +317,14 @@ void CANRX( void * pvParameters )
                     }
                 }
                 break;
+            case ID_ControlMode:
+                {
+                    if(CAN_Message.MessageArry[0] == 0)
+                        printf("switch to auto control\r\n");
+                    else if(CAN_Message.MessageArry[0] == 1)
+                        printf("switch to manual control\r\n");
+                }
+                break;
             default:
                 break;
             }
@@ -453,12 +461,16 @@ void SENSOR( void * pvParameters )
     }
 }
 
+//需要添加上电后校准环节，先不添加负载，电流值为0
+//最好是上电自动校准一次，然后可以上位机手动校准
 void CONTROL( void * pvParameters )
 {
     BaseType_t retValue;
     uint16_t PWMDuty = 0;
     uint32_t PAUSEDuration = 0;
     EventBits_t uxBits;
+    
+    //vTaskDelay(2000);   //先等待2s，系统稳定后
     while(1)
     {
         if(EventGroupHandler != NULL){
@@ -505,7 +517,7 @@ void CONTROL( void * pvParameters )
         {
             if(xSemaphoreTake(UART_MutexSemaphore,10) == pdTRUE)
             {
-                printf("Receive PAUSEDuration from PAUSE_Queue succeed\r\nPAUSEDuration = %luus\r\n",PAUSEDuration);
+                printf("Receive PAUSEDuration from PAUSE_Queue succeed\r\nPAUSEDuration = %.3fms\r\n",PAUSEDuration/1000.0);
                 xSemaphoreGive(UART_MutexSemaphore);
             }
             FTM1_CH0_GeneratePause_Fixed(1000,PAUSEDuration);
@@ -547,18 +559,17 @@ void SYSTEMSTATUS( void * pvParameters )
                                             (uint32_t      *) &TotalRunTime );
             if(xSemaphoreTake(UART_MutexSemaphore,10) == pdTRUE)
             {
-                printf("TaskName   Pri Num Stack RunTime    Status\r\n");
+                printf("TaskName   Pri Num Stack RunTime\r\n");
                 for(x=0;x<ArraySize;x++)
                 {
                     //通过串口打印出获取到的系统任务的有关信息，比如任务名称、
                     //任务优先级和任务编号。
-                    printf("%-11s%-4d%-4d%-6d%-11lu%-6d\r\n",
+                    printf("%-11s%-4d%-4d%-6d%lu\r\n",
                     StatusArray[x].pcTaskName,
                     (int)StatusArray[x].uxCurrentPriority,
                     (int)StatusArray[x].xTaskNumber,
                     StatusArray[x].usStackHighWaterMark,
-                    StatusArray[x].ulRunTimeCounter,
-                    StatusArray[x].eCurrentState);//任务编号表示创建先后顺序，首先创建开始任务
+                    StatusArray[x].ulRunTimeCounter);//任务编号表示创建先后顺序，首先创建开始任务
                 }
                 printf("RemainHeapSize = %d\r\n",xPortGetFreeHeapSize());
                 printf("MinRemainHeapSize = %d\r\n",xPortGetMinimumEverFreeHeapSize());
