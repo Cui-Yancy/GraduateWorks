@@ -18,22 +18,27 @@ void ADC0_CalculateT(double *Temperature, CANMessage *message){
     uint16_t ADC0_Average = 0;
     ADC0_Average = ResultFilter(ADC0_Result,ADC0_ResultNum);
 
+    
+
+    //float V = ADC0_ReferenceV*ADC0_Average/(float)ADC0_MAXValue;
+    //Printf("V = %.3fV\t",V);
+
+    //double R = AssistR*ADC0_Average / (double)(ADC0_MAXValue - ADC0_Average);
+    //*Temperature = (R-1000)/3.85;
+    *Temperature = ADC0_Average*258.7/(4095-ADC0_Average)-259.74;
+    //printf("T = %.2f\r\n",*Temperature);
+    
+    uint16_t num = *Temperature*10;
     message->ID = ID_T;
     message->isExtendFrame = true;
-    message->MessageArry[0] = (uint8_t)((ADC0_Average<<8)>>8);
-    message->MessageArry[1] = (uint8_t)(ADC0_Average>>8);    //高8位
+    message->MessageArry[0] = (uint8_t)((num<<8)>>8);
+    message->MessageArry[1] = (uint8_t)(num>>8);    //高8位
     message->MessageArry[2] = 0;
     message->MessageArry[3] = 0;
     message->MessageArry[4] = 0;
     message->MessageArry[5] = 0;
     message->MessageArry[6] = 0;
     message->MessageArry[7] = 0;
-
-    //float V = ADC0_ReferenceV*ADC0_Average/(float)ADC0_MAXValue;
-    //Printf("V = %.3fV\t",V);
-
-    double R = AssistR*ADC0_Average / (double)(ADC0_MAXValue - ADC0_Average);
-    *Temperature = (R-1000)/3.85;
 }
 
 
