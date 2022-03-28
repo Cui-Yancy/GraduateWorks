@@ -20,6 +20,7 @@ TaskHandle_t CANRX_Handler;
 TaskHandle_t CANTX_Handler;
 TaskHandle_t SENSOR_Handler;
 TaskHandle_t CONTROL_Handler;
+//TaskHandle_t TEST_Handler;
 TaskHandle_t SYSTEMSTATUS_Handler;
 
 QueueHandle_t CANRX_Queue;
@@ -150,6 +151,23 @@ void RTOS_Start()
             printf("SYSTEMSTATUS task create succeed\r\n");
         #endif
     }
+
+    // retValue = xTaskCreate( (TaskFunction_t         ) TEST             ,   //任务入口函数
+    //                         (const char *           ) "TEST"           ,   //任务名称
+    //                         (configSTACK_DEPTH_TYPE ) TEST_STACKSIZE   ,   //任务堆栈大小
+    //                         (void *                 ) NULL                     ,   //任务输入
+    //                         (UBaseType_t            ) TEST_PRIORITY    ,   //任务优先级
+    //                         (TaskHandle_t *         ) &TEST_Handler )  ;   //任务句柄
+    // if(retValue != pdPASS)
+    // {
+    //     printf("[%s,%d]:TEST task create failed\r\n",__FILE__,__LINE__);
+    // }
+    // else
+    // {
+    //     #if DEBUG_MODE
+    //         printf("TEST task create succeed\r\n");
+    //     #endif
+    // }
 
     CANRX_Queue = xQueueCreate(CANRX_LENGTH,sizeof(CANMessage));
     if(!CANRX_Queue){
@@ -361,13 +379,13 @@ void CANTX( void * pvParameters )
             #if DEBUG_MODE
                 printf("Receive CAN frame from CANTX queue succeed\r\n");
             #endif
+            CAN0_Send(CAN_Message);
         }
         else
         {
             printf("[%s,%d]:Receive CAN frame from CANTX queue failed\r\n",__FILE__,__LINE__);
         }
 
-        CAN0_Send(CAN_Message);
     }
 }
 
@@ -411,17 +429,19 @@ void SENSOR( void * pvParameters )
             if((uxBits & EVENT_BIT(Event_I)) == EVENT_BIT(Event_I))
             {
                 ADC1_CalculateI(&I,&CAN_Message);
-                retValue = xQueueSend(CANTX_Queue,&CAN_Message,portMAX_DELAY);
-                if(retValue == pdTRUE)
-                {
-                    #if DEBUG_MODE
-                        printf("Send CAN frame to CANTX queue succeed\r\n");
-                    #endif
-                }
-                else
-                {
-                    printf("[%s,%d]:Send CAN frame to CANTX queue failed\r\n",__FILE__,__LINE__);
-                }
+                printf("I=%.2f\r\n",I);
+                CAN0_Send(CAN_Message);
+                //retValue = xQueueSend(CANTX_Queue,&CAN_Message,portMAX_DELAY);
+                // if(retValue == pdTRUE)
+                // {
+                //     #if DEBUG_MODE
+                //         printf("Send CAN frame to CANTX queue succeed\r\n");
+                //     #endif
+                // }
+                // else
+                // {
+                //     printf("[%s,%d]:Send CAN frame to CANTX queue failed\r\n",__FILE__,__LINE__);
+                // }
             }
         }
         
@@ -457,7 +477,7 @@ void SENSOR( void * pvParameters )
             xSemaphoreGive(UART_MutexSemaphore);
         }
         #endif
-        vTaskDelay(1);
+        vTaskDelay(500);
     }
 }
 
@@ -522,6 +542,47 @@ void CONTROL( void * pvParameters )
             }
             FTM1_CH0_GeneratePause_Fixed(1000,PAUSEDuration);
         }
+    }
+}
+
+void TEST( void * pvParameters )
+{
+    // uint16_t Data[ADC0_ResultNum];
+    // uint32_t Sum=0;
+    // uint16_t Average=0,min=4095,max=0;
+    // int i=0;
+    while(1)
+    {
+         vTaskDelay(5000);
+        // //memcpy(Data,ADC0_Result,ADC0_ResultNum*2);
+        // Sum=0;
+        // Average=0;
+        // min=4095;
+        // max=0;
+        // for(i=0;i<ADC0_ResultNum;i++)
+        // {
+        //     Data[i]=ADC0_Result[i];
+        //     Sum+=Data[i];
+        //     if(Data[i]>max) max=Data[i];
+        //     if(Data[i]<min) min=Data[i];
+        // }
+        // Average = Sum/ADC0_ResultNum;
+        // printf("\r\noriginal:\r\n");
+        // printf("min = %d\tmax = %d\taverage = %d\r\n",min,max,Average);
+
+        // uint8_t * Num =(uint8_t *) pvPortMalloc((max-min+1)*sizeof(uint8_t));
+        // for(i=0;i<=(max-min);i++)
+        //     Num[i]=0;
+        // for(i=0;i<ADC0_ResultNum;i++)
+        // {
+        //     Num[Data[i]-min]++;
+        // }
+        // printf("Data-min freq\r\n");
+        // for(i=0;i<=(max-min);i++)
+        //     printf("%-9d%.3f\r\n",i,(float)Num[i]/ADC0_ResultNum);
+
+        // vPortFree(Num);
+        
     }
 }
 
