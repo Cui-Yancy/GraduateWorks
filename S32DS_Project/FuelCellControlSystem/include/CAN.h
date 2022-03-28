@@ -30,7 +30,7 @@ typedef enum
 }CANID_Receive;
 
 #define TX_MessageBuffer    16U     //必须大于等于8，与FIFO个数有关，详细参照Pg.1597
-#define CAN0INTPRIORITY     (configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY+2)
+#define CAN0INTPRIORITY     (configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY)
 
 void CAN0_Init(void);
 void CAN0_Receive(CANMessage *message);
