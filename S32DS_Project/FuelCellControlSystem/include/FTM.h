@@ -5,7 +5,7 @@
 
 #define FTM0_PWMChannel     7U
 #define PWMFAN_MAX          9000U  //90%
-#define PWMFAN_MIN          800U    //8%
+#define PWMFAN_MIN          200U    //2%
 
 #define FTM1INTPRI          5
 
