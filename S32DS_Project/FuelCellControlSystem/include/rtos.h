@@ -8,13 +8,22 @@
 #define CANRX_PRIORITY              (configMAX_PRIORITIES-1)
 
 #define CANTX_STACKSIZE             100
-#define CANTX_PRIORITY              (configMAX_PRIORITIES-4)
+#define CANTX_PRIORITY              (configMAX_PRIORITIES-3)
 
-#define CONTROL_STACKSIZE           400
-#define CONTROL_PRIORITY            (configMAX_PRIORITIES-2)
+// #define CONTROL_STACKSIZE           400
+// #define CONTROL_PRIORITY            (configMAX_PRIORITIES-2)
 
-#define SENSOR_STACKSIZE            450
-#define SENSOR_PRIORITY             (configMAX_PRIORITIES-3)
+#define ON_STACKSIZE                100
+#define ON_PRIORITY                 (configMAX_PRIORITIES-2)
+
+#define OFF_STACKSIZE               100
+#define OFF_PRIORITY                (configMAX_PRIORITIES-2)
+
+#define RUN_STACKSIZE               350
+#define RUN_PRIORITY                (configMAX_PRIORITIES-2)
+
+#define SENSOR_STACKSIZE            250
+#define SENSOR_PRIORITY             (configMAX_PRIORITIES-4)
 
 #define SYSTEMSTATUS_STACKSIZE      300
 #define SYSTEMSTATUS_PRIORITY       0
@@ -27,6 +36,16 @@
 #define CANTX_LENGTH                5
 #define PWM_LENGTH                  2
 #define PAUSE_LENGTH                2
+#define TIV_LENGTH                  5
+
+#define BLOW_TIME                   5000    //开机吹扫5000ms
+
+typedef struct
+{
+    double T;
+    double I;
+    double V;
+}TIV_Type;
 
 //事件标志组配置
 typedef enum
@@ -36,7 +55,9 @@ typedef enum
     Event_V = 2,
     Event_On = 3,           //开机指令标志位
     Event_Off = 4,          //关机指令标志位
-    Flag_Status = 5,        //系统状态标志位
+    Flag_Status = 5,        //系统状态标志位，用于表示开关机状态，1为已开机
+    AUTO = 6,               //手动/自动标志位
+    Event_Ready=7,          //系统启动完成，可以进入正常运行状态
 }EventBits;
 #define EVENT_BIT(n)                (1<<n)
 #define SYSTEM_ON                   (1<<Flag_Status)
@@ -50,8 +71,11 @@ void RTOS_Start();
 void CANRX( void * pvParameters );
 void CANTX( void * pvParameters );
 void SENSOR( void * pvParameters );
-void CONTROL( void * pvParameters );
-void TEST( void * pvParameters );
+//void CONTROL( void * pvParameters );
+void ON( void * pvParameters );
+void OFF( void * pvParameters );
+void RUN( void * pvParameters );
+//void TEST( void * pvParameters );
 void SYSTEMSTATUS( void * pvParameters );
 
 #endif /* RTOS_H_ */

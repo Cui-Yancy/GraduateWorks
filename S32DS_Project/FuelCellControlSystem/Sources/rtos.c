@@ -19,7 +19,10 @@
 TaskHandle_t CANRX_Handler;
 TaskHandle_t CANTX_Handler;
 TaskHandle_t SENSOR_Handler;
-TaskHandle_t CONTROL_Handler;
+TaskHandle_t ON_Handler;
+TaskHandle_t OFF_Handler;
+TaskHandle_t RUN_Handler;
+//TaskHandle_t CONTROL_Handler;
 //TaskHandle_t TEST_Handler;
 TaskHandle_t SYSTEMSTATUS_Handler;
 
@@ -27,6 +30,7 @@ QueueHandle_t CANRX_Queue;
 QueueHandle_t CANTX_Queue;
 QueueHandle_t PWM_Queue;
 QueueHandle_t PAUSE_Queue;
+QueueHandle_t TIV_Queue;
 
 EventGroupHandle_t EventGroupHandler;
 
@@ -118,22 +122,73 @@ void RTOS_Start()
         #endif
     }
 
-    retValue = xTaskCreate( (TaskFunction_t         ) CONTROL             ,   //任务入口函数
-                            (const char *           ) "CONTROL"           ,   //任务名称
-                            (configSTACK_DEPTH_TYPE ) CONTROL_STACKSIZE   ,   //任务堆栈大小
+    retValue = xTaskCreate( (TaskFunction_t         ) ON             ,   //任务入口函数
+                            (const char *           ) "ON"           ,   //任务名称
+                            (configSTACK_DEPTH_TYPE ) ON_STACKSIZE   ,   //任务堆栈大小
                             (void *                 ) NULL              ,   //任务输入
-                            (UBaseType_t            ) CONTROL_PRIORITY    ,   //任务优先级
-                            (TaskHandle_t *         ) &CONTROL_Handler )  ;   //任务句柄
+                            (UBaseType_t            ) ON_PRIORITY    ,   //任务优先级
+                            (TaskHandle_t *         ) &ON_Handler )  ;   //任务句柄
     if(retValue != pdPASS)
     {
-        printf("[%s,%d]:CONTROL task create failed\r\n",__FILE__,__LINE__);
+        printf("[%s,%d]:ON task create failed\r\n",__FILE__,__LINE__);
     }
     else
     {
         #if DEBUG_MODE
-            printf("CONTROL task create succeed\r\n");
+            printf("ON task create succeed\r\n");
         #endif
     }
+
+    retValue = xTaskCreate( (TaskFunction_t         ) OFF             ,   //任务入口函数
+                            (const char *           ) "OFF"           ,   //任务名称
+                            (configSTACK_DEPTH_TYPE ) OFF_STACKSIZE   ,   //任务堆栈大小
+                            (void *                 ) NULL              ,   //任务输入
+                            (UBaseType_t            ) OFF_PRIORITY    ,   //任务优先级
+                            (TaskHandle_t *         ) &OFF_Handler )  ;   //任务句柄
+    if(retValue != pdPASS)
+    {
+        printf("[%s,%d]:OFF task create failed\r\n",__FILE__,__LINE__);
+    }
+    else
+    {
+        #if DEBUG_MODE
+            printf("OFF task create succeed\r\n");
+        #endif
+    }
+
+    retValue = xTaskCreate( (TaskFunction_t         ) RUN             ,   //任务入口函数
+                            (const char *           ) "RUN"           ,   //任务名称
+                            (configSTACK_DEPTH_TYPE ) RUN_STACKSIZE   ,   //任务堆栈大小
+                            (void *                 ) NULL              ,   //任务输入
+                            (UBaseType_t            ) RUN_PRIORITY    ,   //任务优先级
+                            (TaskHandle_t *         ) &RUN_Handler )  ;   //任务句柄
+    if(retValue != pdPASS)
+    {
+        printf("[%s,%d]:RUN task create failed\r\n",__FILE__,__LINE__);
+    }
+    else
+    {
+        #if DEBUG_MODE
+            printf("RUN task create succeed\r\n");
+        #endif
+    }
+
+    // retValue = xTaskCreate( (TaskFunction_t         ) CONTROL             ,   //任务入口函数
+    //                         (const char *           ) "CONTROL"           ,   //任务名称
+    //                         (configSTACK_DEPTH_TYPE ) CONTROL_STACKSIZE   ,   //任务堆栈大小
+    //                         (void *                 ) NULL              ,   //任务输入
+    //                         (UBaseType_t            ) CONTROL_PRIORITY    ,   //任务优先级
+    //                         (TaskHandle_t *         ) &CONTROL_Handler )  ;   //任务句柄
+    // if(retValue != pdPASS)
+    // {
+    //     printf("[%s,%d]:CONTROL task create failed\r\n",__FILE__,__LINE__);
+    // }
+    // else
+    // {
+    //     #if DEBUG_MODE
+    //         printf("CONTROL task create succeed\r\n");
+    //     #endif
+    // }
 
     retValue = xTaskCreate( (TaskFunction_t         ) SYSTEMSTATUS             ,   //任务入口函数
                             (const char *           ) "SYSTEMSTATUS"           ,   //任务名称
@@ -213,6 +268,17 @@ void RTOS_Start()
         #endif
     }
 
+    TIV_Queue = xQueueCreate(TIV_LENGTH,sizeof(TIV_Type));
+    if(!TIV_Queue){
+      printf("[%s,%d]:TIV Queue create failed\r\n",__FILE__,__LINE__);
+    }
+    else
+    {
+        #if DEBUG_MODE
+            printf("PAUSE Queue create succeed\r\n");
+        #endif
+    }
+
     UART_MutexSemaphore = xSemaphoreCreateMutex();   //互斥信号量在创建时会进行释放操作，xQueueGenericSend，因此初始化后有效
     if(UART_MutexSemaphore == NULL){                //创建不成功
         printf("UART MutexSemaphore create failed\r\n");
@@ -224,7 +290,10 @@ void RTOS_Start()
     }
     else
     {
-        xEventGroupClearBits(EventGroupHandler,EVENT_BIT(Event_On)|EVENT_BIT(Event_Off)|EVENT_BIT(Flag_Status));
+        xEventGroupClearBits(   EventGroupHandler,
+                                EVENT_BIT(Event_On)|EVENT_BIT(Event_Off)|
+                                EVENT_BIT(Flag_Status)|EVENT_BIT(Event_Ready));
+        xEventGroupSetBits(EventGroupHandler,EVENT_BIT(AUTO));  //开机默认自动控制
         #if DEBUG_MODE
             printf("EventGroup create succeed\r\n");
         #endif
@@ -260,7 +329,7 @@ void CANRX( void * pvParameters )
 
             switch (CAN_Message.ID)
             {
-            case ID_PWMFAN_SPEED:
+            case ID_PWMFAN_SPEED:   //接收PWM和脉冲，还应该与开关机状态相关联
                 {
                     PWMDuty = (CAN_Message.MessageArry[0]+(((uint16_t)CAN_Message.MessageArry[1])<<8));
                     PWMDuty = PWMDuty>PWMFAN_MAX?PWMFAN_MAX:PWMDuty;
@@ -338,9 +407,15 @@ void CANRX( void * pvParameters )
             case ID_ControlMode:
                 {
                     if(CAN_Message.MessageArry[0] == 0)
+                    {
                         printf("switch to auto control\r\n");
+                        xEventGroupSetBits(EventGroupHandler,EVENT_BIT(AUTO));
+                    }
                     else if(CAN_Message.MessageArry[0] == 1)
+                    {
                         printf("switch to manual control\r\n");
+                        xEventGroupClearBits(EventGroupHandler,EVENT_BIT(AUTO));
+                    }
                 }
                 break;
             default:
@@ -364,6 +439,25 @@ void CANRX( void * pvParameters )
         
         
         //vTaskDelay(1000);
+    }
+}
+
+static void MyQueueSend(QueueHandle_t    xQueue,
+                        const void       *pvItemToQueue,
+                        TickType_t       xTicksToWait,
+                        const char*      warning)
+{
+    BaseType_t retValue;
+    retValue = xQueueSend(xQueue,pvItemToQueue,xTicksToWait);
+    if(retValue == pdTRUE)
+    {
+        #if DEBUG_MODE
+            printf("Send CAN frame to CANTX queue succeed\r\n");
+        #endif
+    }
+    else
+    {
+        printf("Queue send failed log:%s\r\n",warning);
     }
 }
 
@@ -391,82 +485,46 @@ void CANTX( void * pvParameters )
 
 void SENSOR( void * pvParameters )
 {
-    double T = 0.000,I = 0.0,V = 0.00;
+    //double T = 0.000,I = 0.0,V = 0.00;
+    TIV_Type TIV;
     CANMessage CAN_Message;
-    BaseType_t retValue;
+    //BaseType_t retValue;
     EventBits_t uxBits;
     while(1)
     {
         if(EventGroupHandler != NULL){
             uxBits = xEventGroupWaitBits((EventGroupHandle_t ) EventGroupHandler,   //时间标志句柄
-                                         (EventBits_t        ) EVENT_BIT(Event_T),  //等待的位
+                                         (EventBits_t        ) EVENT_BIT(Event_T)|EVENT_BIT(Event_I)|EVENT_BIT(Event_V),  //等待的位
                                          (BaseType_t         ) pdTRUE,              //退出是否清零
-                                         (BaseType_t         ) pdFALSE,             //是否等待所有位
-                                         (TickType_t         ) 2 );                 //阻塞时间
-            if((uxBits & EVENT_BIT(Event_T)) == EVENT_BIT(Event_T))
+                                         (BaseType_t         ) pdTRUE,             //是否等待所有位
+                                         (TickType_t         ) portMAX_DELAY );     //阻塞时间
+            if((uxBits & (EVENT_BIT(Event_T)|EVENT_BIT(Event_I)|EVENT_BIT(Event_V))) == (EVENT_BIT(Event_T)|EVENT_BIT(Event_I)|EVENT_BIT(Event_V)))
             {
-                ADC0_CalculateT(&T,&CAN_Message);
-                retValue = xQueueSend(CANTX_Queue,&CAN_Message,portMAX_DELAY);
-                if(retValue == pdTRUE)
-                {
-                    #if DEBUG_MODE
-                        printf("Send CAN frame to CANTX queue succeed\r\n");
-                    #endif
-                }
-                else
-                {
-                    printf("[%s,%d]:Send CAN frame to CANTX queue failed\r\n",__FILE__,__LINE__);
-                }
+                ADC0_CalculateT(&TIV.T,&CAN_Message);
+                //printf("I=%.1f ",TIV.T);
+                MyQueueSend(CANTX_Queue,&CAN_Message,portMAX_DELAY,"1");
+
+                ADC1_CalculateI(&TIV.I,&CAN_Message);
+                //printf("I=%.1f ",TIV.I);
+                MyQueueSend(CANTX_Queue,&CAN_Message,portMAX_DELAY,"2");
+
+                ADC1_CalculateV(&TIV.V,&CAN_Message);
+                //printf("I=%.1f ",TIV.T);
+                MyQueueSend(CANTX_Queue,&CAN_Message,portMAX_DELAY,"3");
+
+                //MyQueueSend(TIV_Queue,&TIV,portMAX_DELAY,"4");
             }
+            else
+            {
+                printf("wait TIV bits failed\r\n");
+            }
+        }
+        else
+        {
+            printf("eventgroup invalid\r\n");
         }
 
-        if(EventGroupHandler != NULL){
-            uxBits = xEventGroupWaitBits((EventGroupHandle_t ) EventGroupHandler,   //时间标志句柄
-                                         (EventBits_t        ) EVENT_BIT(Event_I),  //等待的位
-                                         (BaseType_t         ) pdTRUE,              //退出是否清零
-                                         (BaseType_t         ) pdFALSE,             //是否等待所有位
-                                         (TickType_t         ) 2 );                 //阻塞时间
-            if((uxBits & EVENT_BIT(Event_I)) == EVENT_BIT(Event_I))
-            {
-                ADC1_CalculateI(&I,&CAN_Message);
-                printf("I=%.2f\r\n",I);
-                CAN0_Send(CAN_Message);
-                //retValue = xQueueSend(CANTX_Queue,&CAN_Message,portMAX_DELAY);
-                // if(retValue == pdTRUE)
-                // {
-                //     #if DEBUG_MODE
-                //         printf("Send CAN frame to CANTX queue succeed\r\n");
-                //     #endif
-                // }
-                // else
-                // {
-                //     printf("[%s,%d]:Send CAN frame to CANTX queue failed\r\n",__FILE__,__LINE__);
-                // }
-            }
-        }
         
-        if(EventGroupHandler != NULL){
-            uxBits = xEventGroupWaitBits((EventGroupHandle_t ) EventGroupHandler,   //时间标志句柄
-                                         (EventBits_t        ) EVENT_BIT(Event_V),  //等待的位
-                                         (BaseType_t         ) pdTRUE,              //退出是否清零
-                                         (BaseType_t         ) pdFALSE,             //是否等待所有位
-                                         (TickType_t         ) 2 );                 //阻塞时间
-            if((uxBits & EVENT_BIT(Event_V)) == EVENT_BIT(Event_V))
-            {
-                ADC1_CalculateV(&V,&CAN_Message);
-                retValue = xQueueSend(CANTX_Queue,&CAN_Message,portMAX_DELAY);
-                if(retValue == pdTRUE)
-                {
-                    #if DEBUG_MODE
-                        printf("Send CAN frame to CANTX queue succeed\r\n");
-                    #endif
-                }
-                else
-                {
-                    printf("[%s,%d]:Send CAN frame to CANTX queue failed\r\n",__FILE__,__LINE__);
-                }
-            }
-        }
 
         #if DEBUG_MODE
         if(xSemaphoreTake(UART_MutexSemaphore,10) == pdTRUE)
@@ -477,20 +535,13 @@ void SENSOR( void * pvParameters )
             xSemaphoreGive(UART_MutexSemaphore);
         }
         #endif
-        vTaskDelay(500);
+        vTaskDelay(100);
     }
 }
 
-//需要添加上电后校准环节，先不添加负载，电流值为0
-//最好是上电自动校准一次，然后可以上位机手动校准
-void CONTROL( void * pvParameters )
+void ON( void * pvParameters )
 {
-    BaseType_t retValue;
-    uint16_t PWMDuty = 0;
-    uint32_t PAUSEDuration = 0;
     EventBits_t uxBits;
-    
-    //vTaskDelay(2000);   //先等待2s，系统稳定后
     while(1)
     {
         if(EventGroupHandler != NULL){
@@ -498,93 +549,230 @@ void CONTROL( void * pvParameters )
                                          (EventBits_t        ) EVENT_BIT(Event_On),  //等待的位
                                          (BaseType_t         ) pdTRUE,              //退出是否清零
                                          (BaseType_t         ) pdFALSE,             //是否等待所有位
-                                         (TickType_t         ) 2 );                 //阻塞时间
+                                         (TickType_t         ) portMAX_DELAY );                 //阻塞时间
             if((uxBits & EVENT_BIT(Event_On)) == EVENT_BIT(Event_On))
             {
+                //开机流程：打开氢气阀门、排气阀门，吹扫5s，
                 printf("Swich On\r\n");
                 OpenH2();
-                FTM1_CH0_GeneratePause_Fixed(0,3000*1000);
+                FTM1_CH0_GeneratePause_Fixed(0,BLOW_TIME*1000);
                 FTM0_UpdatePWM(FTM0_PWMChannel,800);
                 xEventGroupSetBits(EventGroupHandler,EVENT_BIT(Flag_Status));
+                vTaskDelay(BLOW_TIME);
+                //开机按下后，可以立马关闭，但是下一次打开系统需要等待5秒后才能再次打开
+                xEventGroupSetBits(EventGroupHandler,EVENT_BIT(Event_Ready));
             }
+            else
+            {
+                printf("wait ON bit failed\r\n");
+            }
+        }
+        else
+        {
+            printf("event group invalid\r\n");
+            vTaskDelay(1000);
+        }
+    }
+
+}
+void OFF( void * pvParameters )
+{
+    EventBits_t uxBits;
+    while(1)
+    {
+        if(EventGroupHandler != NULL){
             uxBits = xEventGroupWaitBits((EventGroupHandle_t ) EventGroupHandler,   //时间标志句柄
                                          (EventBits_t        ) EVENT_BIT(Event_Off),  //等待的位
                                          (BaseType_t         ) pdTRUE,              //退出是否清零
                                          (BaseType_t         ) pdFALSE,             //是否等待所有位
-                                         (TickType_t         ) 2 );                 //阻塞时间
+                                         (TickType_t         ) portMAX_DELAY );                 //阻塞时间
             if((uxBits & EVENT_BIT(Event_Off)) == EVENT_BIT(Event_Off))
             {
                 printf("Swich Off\r\n");
-                CloseH2();
-                FTM0_UpdatePWM(FTM0_PWMChannel,0);
                 xEventGroupClearBits(EventGroupHandler,EVENT_BIT(Flag_Status));
+                xEventGroupClearBits(EventGroupHandler,EVENT_BIT(Event_Ready));
+                CloseH2();
+                //等待温度下降***********************************
+                FTM0_UpdatePWM(FTM0_PWMChannel,0);
+            }
+            else
+            {
+                printf("wait OFF bit failed\r\n");
             }
         }
-
-        retValue = xQueueReceive(PWM_Queue,&PWMDuty,1);
-        if(retValue == pdTRUE)
+        else
         {
-            if(xSemaphoreTake(UART_MutexSemaphore,10) == pdTRUE)
-            {
-                printf("Receive PWMDuty from PWM_Queue succeed\r\nPWMDuty = %.2f%%\r\n",PWMDuty/100.0);
-                xSemaphoreGive(UART_MutexSemaphore);
-            }
-            FTM0_UpdatePWM(FTM0_PWMChannel,PWMDuty);
-        }
-
-        retValue = xQueueReceive(PAUSE_Queue,&PAUSEDuration,1);
-        if(retValue == pdTRUE)
-        {
-            if(xSemaphoreTake(UART_MutexSemaphore,10) == pdTRUE)
-            {
-                printf("Receive PAUSEDuration from PAUSE_Queue succeed\r\nPAUSEDuration = %.3fms\r\n",PAUSEDuration/1000.0);
-                xSemaphoreGive(UART_MutexSemaphore);
-            }
-            FTM1_CH0_GeneratePause_Fixed(1000,PAUSEDuration);
+            printf("event group invalid\r\n");
+            vTaskDelay(1000);
         }
     }
 }
-
-void TEST( void * pvParameters )
+void RUN( void * pvParameters )
 {
-    // uint16_t Data[ADC0_ResultNum];
-    // uint32_t Sum=0;
-    // uint16_t Average=0,min=4095,max=0;
-    // int i=0;
+    EventBits_t uxBits,value;
+    BaseType_t retValue;
+    uint16_t PWMDuty = 0;
+    uint32_t PAUSEDuration = 0;
     while(1)
     {
-         vTaskDelay(5000);
-        // //memcpy(Data,ADC0_Result,ADC0_ResultNum*2);
-        // Sum=0;
-        // Average=0;
-        // min=4095;
-        // max=0;
-        // for(i=0;i<ADC0_ResultNum;i++)
-        // {
-        //     Data[i]=ADC0_Result[i];
-        //     Sum+=Data[i];
-        //     if(Data[i]>max) max=Data[i];
-        //     if(Data[i]<min) min=Data[i];
-        // }
-        // Average = Sum/ADC0_ResultNum;
-        // printf("\r\noriginal:\r\n");
-        // printf("min = %d\tmax = %d\taverage = %d\r\n",min,max,Average);
+        if(EventGroupHandler != NULL){
+            uxBits = xEventGroupWaitBits((EventGroupHandle_t ) EventGroupHandler,   //时间标志句柄
+                                         (EventBits_t        ) EVENT_BIT(Event_Ready)|EVENT_BIT(Flag_Status),  //等待的位
+                                         (BaseType_t         ) pdFALSE,              //退出是否清零
+                                         (BaseType_t         ) pdTRUE,             //是否等待所有位
+                                         (TickType_t         ) portMAX_DELAY );                 //阻塞时间
+            if((uxBits & EVENT_BIT(Event_Ready)) == EVENT_BIT(Event_Ready))
+            {
+                value = xEventGroupGetBits(EventGroupHandler);
+                value = (value>>AUTO) & 1;
+                if(value)   //自动控制
+                {
+                    printf("auto control\r\n");
+                    vTaskDelay(1000);
+                }
+                else        //手动控制
+                {
+                    retValue = xQueueReceive(PWM_Queue,&PWMDuty,10);
+                    if(retValue == pdTRUE)
+                    {
+                        if(xSemaphoreTake(UART_MutexSemaphore,10) == pdTRUE)
+                        {
+                            printf("Receive PWMDuty from PWM_Queue succeed\r\nPWMDuty = %.2f%%\r\n",PWMDuty/100.0);
+                            xSemaphoreGive(UART_MutexSemaphore);
+                        }
+                        FTM0_UpdatePWM(FTM0_PWMChannel,PWMDuty);
+                    }
 
-        // uint8_t * Num =(uint8_t *) pvPortMalloc((max-min+1)*sizeof(uint8_t));
-        // for(i=0;i<=(max-min);i++)
-        //     Num[i]=0;
-        // for(i=0;i<ADC0_ResultNum;i++)
-        // {
-        //     Num[Data[i]-min]++;
-        // }
-        // printf("Data-min freq\r\n");
-        // for(i=0;i<=(max-min);i++)
-        //     printf("%-9d%.3f\r\n",i,(float)Num[i]/ADC0_ResultNum);
-
-        // vPortFree(Num);
-        
+                    retValue = xQueueReceive(PAUSE_Queue,&PAUSEDuration,10);
+                    if(retValue == pdTRUE)
+                    {
+                        if(xSemaphoreTake(UART_MutexSemaphore,10) == pdTRUE)
+                        {
+                            printf("Receive PAUSEDuration from PAUSE_Queue succeed\r\nPAUSEDuration = %.3fms\r\n",PAUSEDuration/1000.0);
+                            xSemaphoreGive(UART_MutexSemaphore);
+                        }
+                        FTM1_CH0_GeneratePause_Fixed(0,PAUSEDuration);
+                    }
+                }
+            }
+            else
+            {
+                printf("wait Ready bit failed\r\n");
+            }
+        }
+        else
+        {
+            printf("event group invalid\r\n");
+            vTaskDelay(1000);
+        }
     }
 }
+
+//需要添加上电后校准环节，先不添加负载，电流值为0
+//最好是上电自动校准一次，然后可以上位机手动校准
+// void CONTROL( void * pvParameters )
+// {
+//     BaseType_t retValue;
+//     uint16_t PWMDuty = 0;
+//     uint32_t PAUSEDuration = 0;
+//     EventBits_t uxBits;
+    
+//     //vTaskDelay(2000);   //先等待2s，系统稳定后
+//     while(1)
+//     {
+//         if(EventGroupHandler != NULL){
+//             uxBits = xEventGroupWaitBits((EventGroupHandle_t ) EventGroupHandler,   //时间标志句柄
+//                                          (EventBits_t        ) EVENT_BIT(Event_On),  //等待的位
+//                                          (BaseType_t         ) pdTRUE,              //退出是否清零
+//                                          (BaseType_t         ) pdFALSE,             //是否等待所有位
+//                                          (TickType_t         ) 1 );                 //阻塞时间
+//             if((uxBits & EVENT_BIT(Event_On)) == EVENT_BIT(Event_On))
+//             {
+//                 //开机流程：打开氢气阀门、排气阀门，吹扫5s，
+//                 //printf("Swich On\r\n");
+//                 OpenH2();
+//                 FTM1_CH0_GeneratePause_Fixed(0,5000*1000);
+//                 FTM0_UpdatePWM(FTM0_PWMChannel,800);
+//                 xEventGroupSetBits(EventGroupHandler,EVENT_BIT(Flag_Status));
+//             }
+//             uxBits = xEventGroupWaitBits((EventGroupHandle_t ) EventGroupHandler,   //时间标志句柄
+//                                          (EventBits_t        ) EVENT_BIT(Event_Off),  //等待的位
+//                                          (BaseType_t         ) pdTRUE,              //退出是否清零
+//                                          (BaseType_t         ) pdFALSE,             //是否等待所有位
+//                                          (TickType_t         ) 2 );                 //阻塞时间
+//             if((uxBits & EVENT_BIT(Event_Off)) == EVENT_BIT(Event_Off))
+//             {
+//                 //printf("Swich Off\r\n");
+//                 CloseH2();
+//                 FTM0_UpdatePWM(FTM0_PWMChannel,0);
+//                 xEventGroupClearBits(EventGroupHandler,EVENT_BIT(Flag_Status));
+//             }
+//         }
+
+//         retValue = xQueueReceive(PWM_Queue,&PWMDuty,1);
+//         if(retValue == pdTRUE)
+//         {
+//             if(xSemaphoreTake(UART_MutexSemaphore,10) == pdTRUE)
+//             {
+//                 printf("Receive PWMDuty from PWM_Queue succeed\r\nPWMDuty = %.2f%%\r\n",PWMDuty/100.0);
+//                 xSemaphoreGive(UART_MutexSemaphore);
+//             }
+//             FTM0_UpdatePWM(FTM0_PWMChannel,PWMDuty);
+//         }
+
+//         retValue = xQueueReceive(PAUSE_Queue,&PAUSEDuration,1);
+//         if(retValue == pdTRUE)
+//         {
+//             if(xSemaphoreTake(UART_MutexSemaphore,10) == pdTRUE)
+//             {
+//                 printf("Receive PAUSEDuration from PAUSE_Queue succeed\r\nPAUSEDuration = %.3fms\r\n",PAUSEDuration/1000.0);
+//                 xSemaphoreGive(UART_MutexSemaphore);
+//             }
+//             FTM1_CH0_GeneratePause_Fixed(1000,PAUSEDuration);
+//         }
+//     }
+// }
+
+// void TEST( void * pvParameters )
+// {
+//     // uint16_t Data[ADC0_ResultNum];
+//     // uint32_t Sum=0;
+//     // uint16_t Average=0,min=4095,max=0;
+//     // int i=0;
+//     while(1)
+//     {
+//          vTaskDelay(5000);
+//         // //memcpy(Data,ADC0_Result,ADC0_ResultNum*2);
+//         // Sum=0;
+//         // Average=0;
+//         // min=4095;
+//         // max=0;
+//         // for(i=0;i<ADC0_ResultNum;i++)
+//         // {
+//         //     Data[i]=ADC0_Result[i];
+//         //     Sum+=Data[i];
+//         //     if(Data[i]>max) max=Data[i];
+//         //     if(Data[i]<min) min=Data[i];
+//         // }
+//         // Average = Sum/ADC0_ResultNum;
+//         // printf("\r\noriginal:\r\n");
+//         // printf("min = %d\tmax = %d\taverage = %d\r\n",min,max,Average);
+
+//         // uint8_t * Num =(uint8_t *) pvPortMalloc((max-min+1)*sizeof(uint8_t));
+//         // for(i=0;i<=(max-min);i++)
+//         //     Num[i]=0;
+//         // for(i=0;i<ADC0_ResultNum;i++)
+//         // {
+//         //     Num[Data[i]-min]++;
+//         // }
+//         // printf("Data-min freq\r\n");
+//         // for(i=0;i<=(max-min);i++)
+//         //     printf("%-9d%.3f\r\n",i,(float)Num[i]/ADC0_ResultNum);
+
+//         // vPortFree(Num);
+        
+//     }
+// }
 
 void SYSTEMSTATUS( void * pvParameters )
 {
