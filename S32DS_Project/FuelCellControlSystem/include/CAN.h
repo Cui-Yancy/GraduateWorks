@@ -37,4 +37,6 @@ void CAN0_Receive(CANMessage *message);
 void CAN0_IRQHandler();
 void CAN0_Send(CANMessage message);
 
+void CAN0_GetPWMdutyFrame(uint16_t duty,CANMessage * message);
+
 #endif /* CAN_H_ */

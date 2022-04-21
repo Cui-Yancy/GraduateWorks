@@ -4,8 +4,8 @@
 #include "s32k144.h"
 
 #define FTM0_PWMChannel     7U
-#define PWMFAN_MAX          9000U  //90%
-#define PWMFAN_MIN          200U    //2%
+#define PWMFAN_MAX          9000  //90%
+#define PWMFAN_MIN          700    //7%
 
 #define FTM1INTPRI          5
 

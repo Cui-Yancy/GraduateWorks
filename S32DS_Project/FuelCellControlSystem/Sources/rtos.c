@@ -6,6 +6,7 @@
 #include "ADC1.h"
 #include "DMA.h"
 #include "FTM.h"
+#include "PID.h"
 
 #include "stdio.h"
 
@@ -31,6 +32,8 @@ QueueHandle_t CANTX_Queue;
 QueueHandle_t PWM_Queue;
 QueueHandle_t PAUSE_Queue;
 QueueHandle_t TIV_Queue;
+QueueHandle_t PWMREAL_Queue;
+QueueHandle_t PID_Queue;
 
 EventGroupHandle_t EventGroupHandler;
 
@@ -275,9 +278,34 @@ void RTOS_Start()
     else
     {
         #if DEBUG_MODE
-            printf("PAUSE Queue create succeed\r\n");
+            printf("TIV Queue create succeed\r\n");
         #endif
     }
+    
+    PWMREAL_Queue = xQueueCreate(PWMREAL_LENGTH,sizeof(uint16_t));
+    if(!PWMREAL_Queue){
+      printf("[%s,%d]:PWMREAL Queue create failed\r\n",__FILE__,__LINE__);
+    }
+    else
+    {
+        #if DEBUG_MODE
+            printf("PWMREAL Queue create succeed\r\n");
+        #endif
+    }
+
+    PID_Queue = xQueueCreate(PID_LENGTH,sizeof(PID));
+    if(!PID_Queue){
+      printf("[%s,%d]:PID Queue create failed\r\n",__FILE__,__LINE__);
+    }
+    else
+    {
+        #if DEBUG_MODE
+            printf("PID Queue create succeed\r\n");
+        #endif
+    }
+    PID PID;
+    PID_Init(&PID,Kp_INIT,Ki_INIT,Kd_INIT);          //PID参数初始化
+    xQueueOverwrite(PID_Queue,&PID);
 
     UART_MutexSemaphore = xSemaphoreCreateMutex();   //互斥信号量在创建时会进行释放操作，xQueueGenericSend，因此初始化后有效
     if(UART_MutexSemaphore == NULL){                //创建不成功
@@ -292,7 +320,7 @@ void RTOS_Start()
     {
         xEventGroupClearBits(   EventGroupHandler,
                                 EVENT_BIT(Event_On)|EVENT_BIT(Event_Off)|
-                                EVENT_BIT(Flag_Status)|EVENT_BIT(Event_Ready));
+                                EVENT_BIT(Flag_Status)|EVENT_BIT(NeedBlow));
         xEventGroupSetBits(EventGroupHandler,EVENT_BIT(AUTO));  //开机默认自动控制
         #if DEBUG_MODE
             printf("EventGroup create succeed\r\n");
@@ -313,6 +341,8 @@ void CANRX( void * pvParameters )
     uint16_t PWMDuty = 0;
     uint32_t PAUSEDuration = 0;
     EventBits_t uxBits;
+    PID PID;
+    float Kp,Ki,Kd;
     while(1)
     {
         retValue = xQueueReceive(CANRX_Queue,&CAN_Message,portMAX_DELAY);
@@ -418,6 +448,17 @@ void CANRX( void * pvParameters )
                     }
                 }
                 break;
+            case ID_PID_Parm:
+                {
+                    xQueuePeek(PID_Queue,&PID,5);
+                    Kp = (CAN_Message.MessageArry[0]+(((uint16_t)CAN_Message.MessageArry[1])<<8))/1000.0f;
+                    Ki = (CAN_Message.MessageArry[2]+(((uint16_t)CAN_Message.MessageArry[3])<<8))/1000.0f;
+                    Kd = (CAN_Message.MessageArry[4]+(((uint32_t)CAN_Message.MessageArry[5])<<8)
+                                +(((uint32_t)CAN_Message.MessageArry[6])<<16))/1000.0f;
+                    PID_Init(&PID,Kp,Ki,Kd);
+                    printf("Kp=%.3f Ki=%.3f Kd=%.3f\r\n",PID.Kp,PID.Ki,PID.Kd);
+                    xQueueOverwrite(PID_Queue,&PID);
+                }
             default:
                 break;
             }
@@ -479,7 +520,6 @@ void CANTX( void * pvParameters )
         {
             printf("[%s,%d]:Receive CAN frame from CANTX queue failed\r\n",__FILE__,__LINE__);
         }
-
     }
 }
 
@@ -490,14 +530,16 @@ void SENSOR( void * pvParameters )
     CANMessage CAN_Message;
     //BaseType_t retValue;
     EventBits_t uxBits;
+    TickType_t xLastWakeTime = xTaskGetTickCount();
     while(1)
     {
+        vTaskDelayUntil(&xLastWakeTime,TIVUPDATE_TIME);
         if(EventGroupHandler != NULL){
             uxBits = xEventGroupWaitBits((EventGroupHandle_t ) EventGroupHandler,   //时间标志句柄
                                          (EventBits_t        ) EVENT_BIT(Event_T)|EVENT_BIT(Event_I)|EVENT_BIT(Event_V),  //等待的位
                                          (BaseType_t         ) pdTRUE,              //退出是否清零
                                          (BaseType_t         ) pdTRUE,             //是否等待所有位
-                                         (TickType_t         ) portMAX_DELAY );     //阻塞时间
+                                         (TickType_t         ) 20 );     //阻塞时间
             if((uxBits & (EVENT_BIT(Event_T)|EVENT_BIT(Event_I)|EVENT_BIT(Event_V))) == (EVENT_BIT(Event_T)|EVENT_BIT(Event_I)|EVENT_BIT(Event_V)))
             {
                 ADC0_CalculateT(&TIV.T,&CAN_Message);
@@ -512,7 +554,8 @@ void SENSOR( void * pvParameters )
                 //printf("I=%.1f ",TIV.T);
                 MyQueueSend(CANTX_Queue,&CAN_Message,portMAX_DELAY,"3");
 
-                //MyQueueSend(TIV_Queue,&TIV,portMAX_DELAY,"4");
+                xQueueOverwrite(TIV_Queue,&TIV);    //覆写方式入队，保证温度电流电压始终由传感器任务更新
+                //vTaskDelay(TIVUPDATE_TIME);
             }
             else
             {
@@ -522,6 +565,7 @@ void SENSOR( void * pvParameters )
         else
         {
             printf("eventgroup invalid\r\n");
+            //vTaskDelay(1000);
         }
 
         
@@ -535,13 +579,15 @@ void SENSOR( void * pvParameters )
             xSemaphoreGive(UART_MutexSemaphore);
         }
         #endif
-        vTaskDelay(100);
+        
     }
 }
 
 void ON( void * pvParameters )
 {
     EventBits_t uxBits;
+    CANMessage CAN_message;
+    uint16_t PWMDuty=STARTPWMDUTY;
     while(1)
     {
         if(EventGroupHandler != NULL){
@@ -556,11 +602,19 @@ void ON( void * pvParameters )
                 printf("Swich On\r\n");
                 OpenH2();
                 FTM1_CH0_GeneratePause_Fixed(0,BLOW_TIME*1000);
-                FTM0_UpdatePWM(FTM0_PWMChannel,800);
+                FTM0_UpdatePWM(FTM0_PWMChannel,PWMDuty);
+
+                //开机后更新系统PWM参数，并将其发送至上位机
+                xQueueOverwrite(PWMREAL_Queue,&PWMDuty);
+                xQueuePeek(PWMREAL_Queue,&PWMDuty,5);
+                CAN0_GetPWMdutyFrame(PWMDuty,&CAN_message);
+                MyQueueSend(CANTX_Queue,&CAN_message,5,"4");
+
+                xEventGroupSetBits(EventGroupHandler,EVENT_BIT(NeedBlow));
                 xEventGroupSetBits(EventGroupHandler,EVENT_BIT(Flag_Status));
-                vTaskDelay(BLOW_TIME);
+                //vTaskDelay(BLOW_TIME);
                 //开机按下后，可以立马关闭，但是下一次打开系统需要等待5秒后才能再次打开
-                xEventGroupSetBits(EventGroupHandler,EVENT_BIT(Event_Ready));
+                //xEventGroupSetBits(EventGroupHandler,EVENT_BIT(Event_Ready));
             }
             else
             {
@@ -578,6 +632,8 @@ void ON( void * pvParameters )
 void OFF( void * pvParameters )
 {
     EventBits_t uxBits;
+    CANMessage CAN_Message;
+    uint16_t PWMDuty;
     while(1)
     {
         if(EventGroupHandler != NULL){
@@ -590,10 +646,14 @@ void OFF( void * pvParameters )
             {
                 printf("Swich Off\r\n");
                 xEventGroupClearBits(EventGroupHandler,EVENT_BIT(Flag_Status));
-                xEventGroupClearBits(EventGroupHandler,EVENT_BIT(Event_Ready));
+                //xEventGroupClearBits(EventGroupHandler,EVENT_BIT(Event_Ready));
                 CloseH2();
                 //等待温度下降***********************************
-                FTM0_UpdatePWM(FTM0_PWMChannel,0);
+                PWMDuty=0;
+                FTM0_UpdatePWM(FTM0_PWMChannel,PWMDuty);
+                xQueueOverwrite(PWMREAL_Queue,&PWMDuty);
+                CAN0_GetPWMdutyFrame(0,&CAN_Message);
+                MyQueueSend(CANTX_Queue,&CAN_Message,5,"4");
             }
             else
             {
@@ -613,22 +673,64 @@ void RUN( void * pvParameters )
     BaseType_t retValue;
     uint16_t PWMDuty = 0;
     uint32_t PAUSEDuration = 0;
+    CANMessage CAN_Message;
+    PID PID;
+    TIV_Type TIV;
+    int32_t PWMDutyCal;
+    double AimT;
+    TickType_t xLastWakeTime = xTaskGetTickCount();
+    uint32_t cycle=0;
     while(1)
     {
+        vTaskDelayUntil(&xLastWakeTime,CONTROL_TIME);
         if(EventGroupHandler != NULL){
             uxBits = xEventGroupWaitBits((EventGroupHandle_t ) EventGroupHandler,   //时间标志句柄
-                                         (EventBits_t        ) EVENT_BIT(Event_Ready)|EVENT_BIT(Flag_Status),  //等待的位
+                                         (EventBits_t        ) /*EVENT_BIT(Event_Ready)|*/EVENT_BIT(Flag_Status),  //等待的位
                                          (BaseType_t         ) pdFALSE,              //退出是否清零
-                                         (BaseType_t         ) pdTRUE,             //是否等待所有位
-                                         (TickType_t         ) portMAX_DELAY );                 //阻塞时间
-            if((uxBits & EVENT_BIT(Event_Ready)) == EVENT_BIT(Event_Ready))
+                                         (BaseType_t         ) pdFALSE,             //是否等待所有位
+                                         (TickType_t         ) 20 );                 //阻塞时间
+            if((uxBits & EVENT_BIT(Flag_Status)) == EVENT_BIT(Flag_Status))
             {
+                value = xEventGroupGetBits(EventGroupHandler);
+                value = (value>>NeedBlow) & 1;
+                if(value)
+                {
+                    printf("system start blow period\r\n");
+                    vTaskDelay(BLOW_TIME);
+                    xEventGroupClearBits(EventGroupHandler,EVENT_BIT(NeedBlow));
+                    printf("blow finish\r\n");
+                }
                 value = xEventGroupGetBits(EventGroupHandler);
                 value = (value>>AUTO) & 1;
                 if(value)   //自动控制
                 {
-                    printf("auto control\r\n");
-                    vTaskDelay(1000);
+                    cycle++;
+                    if(cycle%(EXHAUSTINTERVAL_TIME/CONTROL_TIME)==0)
+                        FTM1_CH0_GeneratePause_Fixed(0,PAUSE_TIME*1000);
+                    
+                    xQueuePeek(PWMREAL_Queue,&PWMDuty,5);   //自动控制或者手动控制后会更改PWM
+                    xQueuePeek(PID_Queue,&PID,5);   //上位机可能会更改PID参数
+                    xQueuePeek(TIV_Queue,&TIV,5);   //传感器更新参数
+                    //printf("auto control\r\n");
+                    
+                    AimT = AimTemCompute(TIV.I);
+                    //printf("Aim T = %.1f\r\n",AimT);
+                    //PWMDutyCal = (int16_t)PWMDuty+PID_Calc_Inc(&PID,AimT,TIV.T)*100;
+                    //printf("PWM :%.2f\r\n",PWM);
+                    PWMDutyCal = PID_Calc(&PID,AimT,TIV.T)*100;
+                    //printf("pwm duty = %ld\r\n",PWMDutyCal);
+                    PWMDutyCal = PWMDutyCal>PWMFAN_MAX?PWMFAN_MAX:PWMDutyCal;
+                    PWMDutyCal = PWMDutyCal<PWMFAN_MIN?PWMFAN_MIN:PWMDutyCal;
+                    PWMDuty = (uint16_t)PWMDutyCal;
+
+                    // PWMDuty = PWMDuty>PWMFAN_MAX?PWMFAN_MAX:PWMDuty;
+                    // PWMDuty = PWMDuty<PWMFAN_MIN?PWMFAN_MIN:PWMDuty;
+                    FTM0_UpdatePWM(FTM0_PWMChannel,PWMDuty);
+                    xQueueOverwrite(PWMREAL_Queue,&PWMDuty);
+                    xQueuePeek(PWMREAL_Queue,&PWMDuty,5);
+                    CAN0_GetPWMdutyFrame(PWMDuty,&CAN_Message);
+                    MyQueueSend(CANTX_Queue,&CAN_Message,5,"4");
+                    //vTaskDelay(CONTROL_TIME);
                 }
                 else        //手动控制
                 {
@@ -641,6 +743,10 @@ void RUN( void * pvParameters )
                             xSemaphoreGive(UART_MutexSemaphore);
                         }
                         FTM0_UpdatePWM(FTM0_PWMChannel,PWMDuty);
+                        xQueueOverwrite(PWMREAL_Queue,&PWMDuty);
+                        xQueuePeek(PWMREAL_Queue,&PWMDuty,5);
+                        CAN0_GetPWMdutyFrame(PWMDuty,&CAN_Message);
+                        MyQueueSend(CANTX_Queue,&CAN_Message,5,"4");
                     }
 
                     retValue = xQueueReceive(PAUSE_Queue,&PAUSEDuration,10);
@@ -657,13 +763,13 @@ void RUN( void * pvParameters )
             }
             else
             {
-                printf("wait Ready bit failed\r\n");
+                //printf("wait flag bit failed\r\n");
             }
         }
         else
         {
             printf("event group invalid\r\n");
-            vTaskDelay(1000);
+            //vTaskDelay(1000);
         }
     }
 }
@@ -792,14 +898,16 @@ void SYSTEMSTATUS( void * pvParameters )
     // printf("%s\r\n",TaskInfo);
 
     //UBaseType_t MinRemainSize;
+    TickType_t xLastWakeTime = xTaskGetTickCount();
     while(1)
     {
+        vTaskDelayUntil(&xLastWakeTime,5000);
         /*查询任务高水位线，即运行过程中剩余最小堆栈*/
         // MinRemainSize = uxTaskGetStackHighWaterMark(SYSTEMSTATUS_Handler);
         // printf("MinRemainSize = %d\r\n",(uint16_t)MinRemainSize);
 
         CallCount++;
-        printf("\r\ncall time count: %lu\r\n",CallCount);
+        //printf("\r\ncall time count: %lu\r\n",CallCount);
         ArraySize = uxTaskGetNumberOfTasks();   //获取任务个数
         StatusArray = (TaskStatus_t *)pvPortMalloc(ArraySize * sizeof(TaskStatus_t));//为指针分配空间
         if(StatusArray != NULL){    //内存分配成功
@@ -834,6 +942,6 @@ void SYSTEMSTATUS( void * pvParameters )
         vPortFree(StatusArray);
         PINS_DRV_TogglePins(PTD,1<<GPIO_RGB_GREEN);
         
-        vTaskDelay(5000);
+        //vTaskDelay(5000);
     }
 }

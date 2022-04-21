@@ -102,3 +102,19 @@ void CAN0_IRQHandler(){
         CAN0->IFLAG1 = ~((uint16_t)((1<<CAN_IFLAG1_BUF5I_SHIFT)));
     }
 }
+
+//将指定PWM占空比转换为一帧CAN报文
+void CAN0_GetPWMdutyFrame(uint16_t duty, CANMessage * message)
+{
+    message->ID = ID_PWNFAN_DUTY_PID;
+    message->isExtendFrame = true;
+    message->MessageArry[0] = (uint8_t)((duty & 0x00FF)>>0);;
+    message->MessageArry[1] = (uint8_t)((duty & 0xFF00)>>8);    //高8位
+    message->MessageArry[2] = 0;
+    message->MessageArry[3] = 0;
+    message->MessageArry[4] = 0;
+    message->MessageArry[5] = 0;
+    message->MessageArry[6] = 0;
+    message->MessageArry[7] = 0;
+}
+
